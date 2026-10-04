@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101112">
+  <title>YouVibe — Twoja kariera twórcy</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" aria-label="YouVibe"><span class="brand-mark">▶</span><span>You<span>Vibe</span></span></div>
+    <label class="search"><input id="search" type="search" placeholder="Szukaj w swoich materiałach…" aria-label="Szukaj w swoich materiałach"><span>⌕</span></label>
+    <div class="top-actions"><span class="avatar" aria-label="Twój profil">Y</span></div>
+  </header>
+  <div class="layout">
+    <aside aria-label="Nawigacja">
+      <div class="nav-label">Menu</div>
+      <button class="nav-link active" data-page="home"><span class="nav-icon">⌂</span>Start</button>
+      <button class="nav-link" data-page="channel"><span class="nav-icon">◉</span>Mój kanał</button>
+      <button class="nav-link" data-page="stats"><span class="nav-icon">▥</span>Statystyki</button>
+      <button class="nav-link" data-page="live"><span class="nav-icon">●</span>Na żywo</button>
+      <button class="nav-link" data-page="monetization"><span class="nav-icon">＄</span>Zarabianie</button>
+      <div class="nav-label">Twoja przestrzeń</div>
+      <button class="nav-link" data-page="uploads"><span class="nav-icon">▣</span>Twoje materiały</button>
+      <div class="side-note"><b>To tylko symulacja ✨</b>Wyświetlenia, polubienia, subskrybenci, widzowie live i zarobki są fikcyjne. Wszystkie dane zapisują się tylko w tej przeglądarce.</div>
+    </aside>
+    <main>
+      <section class="page-view" id="home">
+        <div class="welcome">
+          <div><div class="eyebrow">Twoje studio twórcy</div><h1>Hej, twórco! 👋</h1><p class="subheading">Każdy wielki kanał zaczynał od pierwszego filmu.</p></div>
+          <button class="primary upload-open"><span class="plus">＋</span>Dodaj materiał</button>
+        </div>
+        <div class="banner">
+          <div class="banner-content"><h2>Twoja droga do sławy zaczyna się tutaj ✨</h2><p>Publikuj regularnie, mieszaj formaty i obserwuj, jak rośnie Twoja społeczność. <strong>W tej grze doba twórcy trwa 24 minuty</strong> — możesz rozkręcić kanał w jeden dzień!</p></div>
+        </div>
+        <div class="stats" aria-label="Statystyki kanału">
+          <div class="stat"><div class="stat-top"><span>Wyświetlenia</span><span class="stat-icon">◉</span></div><div class="stat-value" id="total-views">0</div><div class="stat-foot">↗ rosną na bieżąco</div></div>
+          <div class="stat"><div class="stat-top"><span>Subskrybenci</span><span class="stat-icon">♙</span></div><div class="stat-value" id="total-subs">0</div><div class="stat-foot">↗ Twoja społeczność rośnie</div></div>
+          <div class="stat"><div class="stat-top"><span>Polubienia</span><span class="stat-icon">♡</span></div><div class="stat-value" id="total-likes">0</div><div class="stat-foot">↗ za dobre materiały</div></div>
+          <div class="stat"><div class="stat-top"><span>Opublikowane</span><span class="stat-icon">▷</span></div><div class="stat-value" id="total-posts">0</div><div class="stat-foot">materiały na kanale</div></div>
+        </div>
+        <div class="section-heading"><div><h2>Twoje materiały</h2><p>Do 100 subów limit rośnie co 10 subów o 300. Potem wynosi suby²; zwykły zasięg to 50–100% limitu, a viral (5% szans) ×100.</p></div><span class="filter">Wszystkie ▾</span></div>
+        <div class="grid" id="content-grid">
+          <div class="empty" id="empty-state"><div class="empty-icon">＋</div><h3>Twój kanał czeka na pierwszy materiał</h3><p>Dodaj film albo zdjęcie, wybierz tytuł i patrz, jak zaczyna się Twoja przygoda.</p><button class="primary upload-open">＋ Dodaj pierwszy materiał</button></div>
+        </div>
+      </section>
+      <section class="page-view" id="channel" hidden>
+        <div class="eyebrow">Własna przestrzeń</div><h1>Mój kanał</h1><p class="subheading">Zbuduj społeczność — regularność się opłaca!</p>
+        <div class="channel-panel"><div class="channel-avatar">Y</div><div><h2>Twój kanał</h2><p><span id="channel-subs">0</span> subskrybentów · <span id="channel-posts">0</span> materiałów</p><div class="progress-wrap"><div class="progress-label"><span id="rank-name">Początkujący twórca</span><span id="rank-progress">0 / 1 000 subów</span></div><div class="progress"><span id="rank-bar"></span></div></div></div></div>
+        <div class="section-heading"><div><h2>Opublikowane materiały</h2><p>Twoja twórczość, w jednym miejscu.</p></div></div>
+        <div class="grid" id="channel-grid"></div>
+      </section>
+      <section class="page-view" id="stats" hidden>
+        <div class="eyebrow">Wzrost kanału</div><h1>Statystyki</h1><p class="subheading">Zobacz, jak rośnie popularność Twojego kanału.</p>
+        <div class="stats" style="margin-top:24px">
+          <div class="stat"><div class="stat-top"><span>Wyświetlenia</span><span class="stat-icon">◉</span></div><div class="stat-value" id="stats-views">0</div><div class="stat-foot">Z każdym materiałem docierasz dalej.</div></div>
+          <div class="stat"><div class="stat-top"><span>Subskrybenci</span><span class="stat-icon">♙</span></div><div class="stat-value" id="stats-subs">0</div><div class="stat-foot">Buduj swoją społeczność.</div></div>
+          <div class="stat"><div class="stat-top"><span>Polubienia</span><span class="stat-icon">♡</span></div><div class="stat-value" id="stats-likes">0</div><div class="stat-foot">Twoi widzowie dają znać, co lubią.</div></div>
+          <div class="stat"><div class="stat-top"><span>Materiały</span><span class="stat-icon">▷</span></div><div class="stat-value" id="stats-posts">0</div><div class="stat-foot">Różne formaty, więcej okazji do wzrostu.</div></div>
+        </div>
+        <div class="banner"><div class="banner-content"><h2>Jak działa wzrost?</h2><p>Im więcej publikujesz, tym szybciej Twoje materiały zbierają wyświetlenia. Regularne dodawanie nowych filmów i zdjęć zwiększa tempo wzrostu kanału.</p></div></div>
+      </section>
+      <section class="page-view" id="live" hidden>
+        <div class="eyebrow">Studio transmisji</div><h1>Na żywo</h1><p class="subheading">Uruchom transmisję i rozkręć swoją społeczność.</p>
+        <div class="live-layout">
+          <div>
+            <div class="live-stage" id="live-stage">
+              <video id="camera-preview" autoplay muted playsinline hidden></video>
+              <div class="stage-placeholder" id="stage-placeholder"><span class="stage-play">▶</span><strong>Twoje studio jest gotowe</strong><span>Włącz kamerę lub rozpocznij transmisję</span></div>
+              <span class="live-badge" id="live-badge" hidden>● NA ŻYWO</span>
+              <span class="viewer-badge">◉ <span id="live-viewers">0</span> widzów</span>
+              <span class="live-timer" id="live-timer">00:00</span>
+            </div>
+            <label class="title-field live-title-field">Tytuł transmisji<input id="live-title" type="text" maxlength="90" placeholder="O czym dziś pogadamy?"></label>
+            <div class="live-controls">
+              <button class="secondary" id="camera-button" type="button">Włącz kamerę</button>
+              <button class="primary" id="start-live" type="button">▶ Rozpocznij live</button>
+              <button class="stop-live" id="stop-live" type="button" hidden>Zakończ live</button>
+            </div>
+            <p class="live-disclaimer">Podgląd kamery działa lokalnie na tym urządzeniu.</p>
+          </div>
+          <div class="chat-panel">
+            <div class="chat-heading"><div><strong>Czat na żywo</strong><span>Symulowani widzowie</span></div><span class="chat-status" id="chat-status">OCZEKIWANIE</span></div>
+            <div class="chat-messages" id="chat-messages" aria-live="polite"><div class="chat-placeholder">Wiadomości pojawią się po rozpoczęciu transmisji.</div></div>
+            <div class="chat-footer">Czat transmisji</div>
+          </div>
+        </div>
+        <div class="stats live-stats">
+          <div class="stat"><div class="stat-top"><span>Łączne wyświetlenia live</span><span class="stat-icon">◉</span></div><div class="stat-value" id="live-total-views">0</div><div class="stat-foot">Od początku kanału</div></div>
+          <div class="stat"><div class="stat-top"><span>Polubienia z live</span><span class="stat-icon">♡</span></div><div class="stat-value" id="live-total-likes">0</div><div class="stat-foot">Od początku kanału</div></div>
+          <div class="stat"><div class="stat-top"><span>Subskrybenci z live</span><span class="stat-icon">♙</span></div><div class="stat-value" id="live-total-subs">0</div><div class="stat-foot">Od początku kanału</div></div>
+          <div class="stat"><div class="stat-top"><span>Transmisja</span><span class="stat-icon">▷</span></div><div class="stat-value" id="live-status-value">Offline</div><div class="stat-foot">Status kanału</div></div>
+        </div>
+      </section>
+      <section class="page-view" id="monetization" hidden>
+        <div class="eyebrow">Program partnerski</div><h1>Zarabianie</h1><p class="subheading">Odblokuj przychody z reklam, rozwijając swój kanał.</p>
+        <div class="monetization-card" id="monetization-card">
+          <div class="monetization-icon">＄</div>
+          <div class="monetization-content">
+            <span class="monetization-status" id="monetization-status">WYMAGANE 1 000 SUBSKRYBENTÓW</span>
+            <h2 id="monetization-title">Jeszcze chwila do zarabiania</h2>
+            <p id="monetization-copy">Zdobądź 1 000 subskrybentów, by odblokować przychody z reklam.</p>
+            <div class="progress-wrap monetization-progress"><div class="progress-label"><span>Postęp do celu</span><span id="monetization-progress-label">0 / 1 000</span></div><div class="progress"><span id="monetization-progress-bar"></span></div></div>
+          </div>
+        </div>
+        <div class="stats earnings-stats">
+          <div class="stat"><div class="stat-top"><span>Saldo reklamowe</span><span class="stat-icon">＄</span></div><div class="stat-value" id="ad-balance">0,00 zł</div><div class="stat-foot">Naliczony przychód</div></div>
+          <div class="stat"><div class="stat-top"><span>Wyświetlenia po odblokowaniu</span><span class="stat-icon">◉</span></div><div class="stat-value" id="eligible-views">0</div><div class="stat-foot">Naliczane po osiągnięciu celu</div></div>
+          <div class="stat"><div class="stat-top"><span>Stawka</span><span class="stat-icon">↗</span></div><div class="stat-value" id="ad-rate-display">8,50 zł</div><div class="stat-foot">za 1 000 wyświetleń reklam</div></div>
+        </div>
+        <div class="ad-settings">
+          <div class="ad-settings-heading"><div><h2>Ustawienia reklam</h2><p>Dobierz sposób wyświetlania reklam na swoim kanale.</p></div><span class="ad-settings-tag">USTAWIENIA ZAPISYWANE AUTOMATYCZNIE</span></div>
+          <label class="ad-toggle-row"><span><strong>Włącz reklamy</strong><small>Wyłączone reklamy nie naliczają przychodu.</small></span><input id="ad-enabled" type="checkbox"><span class="toggle-track"></span></label>
+          <div class="ad-settings-grid">
+            <label class="ad-field">Format reklam<select id="ad-format"><option value="preroll">Przed filmem</option><option value="midroll">W trakcie filmu</option><option value="display">Baner reklamowy</option><option value="mixed">Mieszany</option></select><small>Wybierz rodzaj reklam wyświetlanych przy materiałach.</small></label>
+            <label class="ad-field">Częstotliwość<select id="ad-frequency"><option value="1">Często · co 1 wyświetlenie</option><option value="2">Standardowo · co 2 wyświetlenia</option><option value="5">Rzadko · co 5 wyświetleń</option></select><small>Większy odstęp oznacza mniej reklam.</small></label>
+            <label class="ad-field">Stawka za 1 000 reklam<select id="ad-rate"><option value="3">3,00 zł · spokojna</option><option value="5">5,00 zł · podstawowa</option><option value="8.5">8,50 zł · standardowa</option><option value="12">12,00 zł · podwyższona</option><option value="20">20,00 zł · premium</option></select><small>Stawka wpływająca na saldo reklamowe.</small></label>
+          </div>
+          <p class="ad-settings-note" id="ad-settings-note">Ustawienia możesz zmienić w dowolnym momencie.</p>
+        </div>
+        <div class="banner"><div class="banner-content"><h2>Jak działa zarabianie?</h2><p>Po osiągnięciu <strong>1 000 subskrybentów</strong> zaczniemy naliczać przychody od kolejnych wyświetleń.</p></div></div>
+      </section>
+      <section class="page-view" id="uploads" hidden>
+        <div class="welcome"><div><div class="eyebrow">Twoje dzieła</div><h1>Twoje materiały</h1><p class="subheading">Filmy i zdjęcia opublikowane na Twoim kanale.</p></div><button class="primary upload-open"><span class="plus">＋</span>Dodaj materiał</button></div>
+        <div class="grid" id="uploads-grid"></div>
+      </section>
+    </main>
+  </div>
+  <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <form class="modal" id="upload-form">
+      <div class="modal-head"><h2 id="modal-title">Dodaj nowy materiał</h2><button type="button" class="close" id="close-modal" aria-label="Zamknij">×</button></div>
+      <p class="modal-desc">Wybierz film lub zdjęcie. Twoje pliki zostają w tej przeglądarce — nigdzie ich nie wysyłamy.</p>
+      <label class="dropzone" id="dropzone"><input id="file-input" type="file" accept="image/*,video/*"><span><span class="drop-icon">⇧</span><strong id="file-label">Kliknij lub przeciągnij plik tutaj</strong><small>Zdjęcia i filmy · maksymalnie 100 MB</small></span></label>
+      <label class="title-field">Tytuł materiału<input id="title-input" type="text" maxlength="90" placeholder="Np. Mój pierwszy film!" required></label>
+      <div class="modal-actions"><span class="modal-hint">Dodany materiał pojawi się na Twoim kanale.</span><button class="primary" id="publish-button" type="submit" disabled>Opublikuj</button></div>
+    </form>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+    <script src="app.js" defer></script>
+</body>
+</html>
