@@ -11,8 +11,31 @@
       const AD_FORMAT_FACTORS = { preroll: 1, midroll: 1.25, display: 0.65, mixed: 1.45 };
       const MAX_BYTES = 100 * 1024 * 1024;
       const formatter = new Intl.NumberFormat("pl-PL");
+      const compactFormatter = new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 1 });
+      const illionPrefixes = [
+        "mi", "bi", "try", "kwadry", "kwinty", "seksty", "septy", "okty", "nony", "decy",
+        "undecy", "duodecy", "tredecy", "kwattuordecy", "kwindecy", "seksdecy", "septendecy",
+        "oktodecy", "nowemdecy", "wiginty"
+      ];
+      const compoundPrefixes = ["un", "duo", "tres", "kwattuor", "kwin", "seks", "septem", "okto", "nowem"];
+      const decadePrefixes = ["", "", "wiginty", "tryginty", "kwadraginty", "kwinkwaginty", "seksaginty", "septuaginty", "oktoginty", "nonaginty"];
+      for (let decade = 2; decade <= 9; decade += 1) {
+        if (decade > 2) illionPrefixes.push(decadePrefixes[decade]);
+        compoundPrefixes.forEach((compound) => illionPrefixes.push(compound + decadePrefixes[decade]));
+      }
+      illionPrefixes.push("centy");
+      const largeNumberUnits = illionPrefixes.flatMap((prefix, index) => {
+        const ion = `${prefix}lion`;
+        if (index === illionPrefixes.length - 1) {
+          return [[ion, `${ion}a`, `${ion}y`, `${ion}ów`]];
+        }
+        const milliard = index === 0 ? "miliard" : `${prefix}liard`;
+        return [
+          [ion, `${ion}a`, `${ion}y`, `${ion}ów`],
+          [milliard, `${milliard}a`, `${milliard}y`, `${milliard}ów`]
+        ];
+      });
       const gridIds = ["content-grid", "channel-grid", "uploads-grid"];
-      let state = loadState();
       let selectedFile = null;
       let dbPromise;
       let activeLive = null;
@@ -21,6 +44,11 @@
       let lastAutosave = Date.now();
       const previewUrls = new Map();
       const $ = (id) => document.getElementById(id);
+      const asCount = (value) => {
+        try { return BigInt(value ?? 0); }
+        catch { return 0n; }
+      };
+      let state = loadState();
 
       function loadState() {
         try {
@@ -28,9 +56,10 @@
           return {
             uploads: Array.isArray(saved.uploads) ? saved.uploads : [],
             liveStats: {
-              views: Math.max(0, Number(saved.liveStats?.views) || 0),
-              likes: Math.max(0, Number(saved.liveStats?.likes) || 0),
-              subs: Math.max(0, Number(saved.liveStats?.subs) || 0)
+              views: asCount(saved.liveStats?.views).toString(),
+              likes: asCount(saved.liveStats?.likes).toString(),
+              subs: asCount(saved.liveStats?.subs).toString(),
+              donations: asCount(saved.liveStats?.donations).toString()
             },
             ads: {
               unlockedAt: Number(saved.ads?.unlockedAt) || null,
@@ -39,25 +68,25 @@
               format: AD_FORMATS.includes(saved.ads?.format) ? saved.ads.format : "preroll",
               frequency: AD_FREQUENCIES.includes(Number(saved.ads?.frequency)) ? Number(saved.ads.frequency) : 2,
               rate: AD_RATES.includes(Number(saved.ads?.rate)) ? Number(saved.ads.rate) : 8.5,
-              monetizedViews: Math.max(0, Number(saved.ads?.monetizedViews) || 0),
-              balance: Math.max(0, Number(saved.ads?.balance) || 0),
-              lastProcessedViews: typeof saved.ads?.lastProcessedViews === "number" && Number.isFinite(saved.ads.lastProcessedViews)
-                ? saved.ads.lastProcessedViews
-                : null
+              monetizedViews: asCount(saved.ads?.monetizedViews).toString(),
+              balanceMicros: saved.ads?.balanceMicros == null
+                ? BigInt(Math.round(Math.max(0, Number(saved.ads?.balance) || 0) * 1000000)).toString()
+                : asCount(saved.ads.balanceMicros).toString(),
+              lastProcessedViews: saved.ads?.lastProcessedViews == null ? null : asCount(saved.ads.lastProcessedViews).toString()
             }
           };
         } catch (error) {
           console.error("Nie udało się odczytać danych YouVibe:", error);
           return {
             uploads: [],
-            liveStats: { views: 0, likes: 0, subs: 0 },
-            ads: { unlockedAt: null, viewsAtUnlock: 0, enabled: true, format: "preroll", frequency: 2, rate: 8.5, monetizedViews: 0, balance: 0, lastProcessedViews: null }
+            liveStats: { views: "0", likes: "0", subs: "0", donations: "0" },
+            ads: { unlockedAt: null, viewsAtUnlock: 0, enabled: true, format: "preroll", frequency: 2, rate: 8.5, monetizedViews: "0", balanceMicros: "0", lastProcessedViews: null }
           };
         }
       }
       function saveState() {
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state, (_, value) => typeof value === "bigint" ? value.toString() : value));
           lastAutosave = Date.now();
         }
         catch (error) { showToast("Nie udało się zapisać statystyk w przeglądarce."); console.error(error); }
@@ -91,6 +120,16 @@
           request.onerror = () => reject(request.error || new Error("Nie udało się odczytać pliku."));
         });
       }
+      async function clearMediaStore() {
+        const db = await openDb();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(DB_STORE, "readwrite");
+          tx.objectStore(DB_STORE).clear();
+          tx.oncomplete = resolve;
+          tx.onerror = () => reject(tx.error || new Error("Nie udało się usunąć zapisanych materiałów."));
+          tx.onabort = () => reject(tx.error || new Error("Reset zapisanych materiałów został przerwany."));
+        });
+      }
       function showToast(message) {
         const toast = $("toast");
         toast.textContent = message;
@@ -102,9 +141,9 @@
         const age = Math.max(0, (Date.now() - upload.createdAt) / 1000) * SIM_SPEED;
         const reach = upload.reach;
         const views = age >= reach.decaySeconds * 7
-          ? reach.maxViews
-          : Math.min(reach.maxViews, Math.floor(reach.maxViews * (1 - Math.exp(-age / reach.decaySeconds))));
-        return { views, likes: Math.floor(views * 0.064), subs: Math.floor(views * 0.012) };
+          ? asCount(reach.maxViews)
+          : asCount(reach.maxViews) * BigInt(Math.floor((1 - Math.exp(-age / reach.decaySeconds)) * 1e9)) / 1000000000n;
+        return { views, likes: views * 64n / 1000n, subs: views * 12n / 1000n };
       }
       function createReach(upload, subscribers) {
         const roll = Math.random();
@@ -123,11 +162,11 @@
           tier = "viralowy";
           reachFraction = 100;
         }
-        const safeSubscribers = Math.max(0, subscribers);
-        const channelViewCap = safeSubscribers < 100
-          ? 2500 + Math.floor(safeSubscribers / 10) * 300
-          : safeSubscribers ** 2;
-        const maxViews = Math.floor(channelViewCap * reachFraction);
+        const safeSubscribers = asCount(subscribers);
+        const channelViewCap = safeSubscribers < 100n
+          ? BigInt(2500 + Number(safeSubscribers / 10n) * 300)
+          : safeSubscribers * safeSubscribers;
+        const maxViews = channelViewCap * BigInt(Math.floor(reachFraction * 10000)) / 10000n;
         const decayRanges = {
           spokojny: [600, 1800],
           standardowy: [1800, 3600],
@@ -136,23 +175,23 @@
         };
         const [minimumDecay, maximumDecay] = decayRanges[tier];
         upload.reach = {
-          modelVersion: 4,
-          subscribersAtPublish: subscribers,
-          channelViewCap,
-          maxViews,
+          modelVersion: 5,
+          subscribersAtPublish: safeSubscribers.toString(),
+          channelViewCap: channelViewCap.toString(),
+          maxViews: maxViews.toString(),
           decaySeconds: Math.floor(minimumDecay + Math.random() * (maximumDecay - minimumDecay)),
           tier
         };
       }
       function migrateUploadReach() {
         let changed = false;
-        const knownSubscribers = state.liveStats.subs + state.uploads.reduce((sum, upload, index) => {
-          if (!upload.reach || !Number.isFinite(upload.reach.maxViews) || !Number.isFinite(upload.reach.decaySeconds)) return sum;
+        const knownSubscribers = asCount(state.liveStats.subs) + state.uploads.reduce((sum, upload, index) => {
+          if (!upload.reach || !Number.isFinite(upload.reach.decaySeconds)) return sum;
           return sum + metrics(upload, index).subs;
-        }, 0);
+        }, 0n);
         state.uploads.forEach((upload) => {
-          if (upload.reach?.modelVersion === 4
-            && Number.isFinite(upload.reach.maxViews)
+          if (upload.reach?.modelVersion === 5
+            && typeof upload.reach.maxViews === "string"
             && Number.isFinite(upload.reach.decaySeconds)) return;
           const subscribersAtPublish = Number.isFinite(upload.reach?.subscribersAtPublish)
             ? upload.reach.subscribersAtPublish
@@ -169,35 +208,69 @@
           sum.likes += value.likes;
           sum.subs += value.subs;
           return sum;
-        }, { views: 0, likes: 0, subs: 0 });
-        total.views += state.liveStats.views;
-        total.likes += state.liveStats.likes;
-        total.subs += state.liveStats.subs;
+        }, { views: 0n, likes: 0n, subs: 0n });
+        total.views += asCount(state.liveStats.views);
+        total.likes += asCount(state.liveStats.likes);
+        total.subs += asCount(state.liveStats.subs);
         return total;
       }
       function accrueAds(totalViews) {
         if (!state.ads.unlockedAt) return false;
+        const currentTotal = asCount(totalViews);
         if (state.ads.lastProcessedViews === null) {
-          state.ads.lastProcessedViews = totalViews;
+          state.ads.lastProcessedViews = currentTotal.toString();
           return true;
         }
-        const currentViews = Math.max(totalViews, state.ads.lastProcessedViews);
-        const newViews = currentViews - state.ads.lastProcessedViews;
-        state.ads.lastProcessedViews = currentViews;
-        if (state.ads.enabled && newViews > 0) {
-          state.ads.monetizedViews += newViews;
-          state.ads.balance += newViews / state.ads.frequency / 1000 * state.ads.rate * AD_FORMAT_FACTORS[state.ads.format];
+        const previousViews = asCount(state.ads.lastProcessedViews);
+        const currentViews = currentTotal > previousViews ? currentTotal : previousViews;
+        const newViews = currentViews - previousViews;
+        state.ads.lastProcessedViews = currentViews.toString();
+        if (state.ads.enabled && newViews > 0n) {
+          state.ads.monetizedViews = (asCount(state.ads.monetizedViews) + newViews).toString();
+          const rateMicros = BigInt(Math.round(state.ads.rate * 1000000));
+          const formatHundredths = BigInt(Math.round(AD_FORMAT_FACTORS[state.ads.format] * 100));
+          const divisor = BigInt(state.ads.frequency * 100000);
+          const earnedMicros = newViews * rateMicros * formatHundredths / divisor;
+          state.ads.balanceMicros = (asCount(state.ads.balanceMicros) + earnedMicros).toString();
         }
         return newViews > 0;
       }
       function formatMoney(value) {
         return value.toLocaleString("pl-PL", { style: "currency", currency: "PLN" });
       }
+      function formatBalance(value) {
+        const cents = (asCount(value) + 5000n) / 10000n;
+        const whole = cents / 100n;
+        const fraction = (cents % 100n).toString().padStart(2, "0");
+        return `${shortNumber(whole)},${fraction} zł`;
+      }
       function liveViewers() {
-        if (!activeLive) return 0;
+        if (!activeLive) return 0n;
         const subscribers = totals().subs;
         const growth = 1 - Math.exp(-activeLive.elapsedSeconds / 30);
-        return Math.min(100000, Math.max(1, Math.floor((4 + Math.sqrt(subscribers) * 2.2) * activeLive.reachFactor * growth)));
+        const subscriberRoot = integerSquareRoot(subscribers);
+        const growthScale = BigInt(Math.floor(growth * 1000000));
+        const reachScale = BigInt(Math.floor(activeLive.reachFactor * 1000));
+        const viewers = (40n + subscriberRoot * 22n) * reachScale * growthScale / 10000000000n;
+        return viewers > 0n ? viewers : 1n;
+      }
+      function donationLimit() {
+        const limit = integerSquareRoot(totals().subs) + 1n;
+        return Number(limit > 1000n ? 1000n : limit);
+      }
+      function integerSquareRoot(value) {
+        if (value < 2n) return value;
+        const digits = value.toString().length;
+        let estimate = 1n << BigInt(Math.ceil(digits * 3.322 / 2));
+        while (true) {
+          const next = (estimate + value / estimate) >> 1n;
+          if (next >= estimate) return estimate;
+          estimate = next;
+        }
+      }
+      function logarithm10(value) {
+        const digits = value.toString();
+        return digits.length - 1 + Math.log10(Number(digits.slice(0, 16)) / (10 ** (Math.min(16, digits.length) - 1)));
       }
       function formatDuration(seconds) {
         const hours = Math.floor(seconds / 3600);
@@ -218,51 +291,91 @@
         while (container.children.length > 50) container.firstElementChild.remove();
         container.scrollTop = container.scrollHeight;
       }
+      function addDonationMessage(name, amount) {
+        const container = $("chat-messages");
+        const placeholder = container.querySelector(".chat-placeholder");
+        if (placeholder) placeholder.remove();
+        const line = document.createElement("div");
+        line.className = "chat-message chat-donation";
+        const sender = document.createElement("span");
+        const username = document.createElement("strong");
+        username.textContent = name;
+        sender.append(username, document.createTextNode(" wysłał donate"));
+        const donation = document.createElement("span");
+        donation.className = "chat-donation-amount";
+        donation.textContent = `${formatter.format(amount)} zł`;
+        line.append(sender, donation);
+        container.append(line);
+        while (container.children.length > 50) container.firstElementChild.remove();
+        container.scrollTop = container.scrollHeight;
+      }
       function scheduleChatMessage() {
         if (!activeLive) return;
         const messages = [
-          ["Maja", "Hej! Wpadłam na live 👋"],
-          ["Kacper", "Pozdrowienia dla wszystkich!"],
-          ["Ola", "Mega klimat! ✨"],
-          ["Filip", "Kiedy kolejny film?"],
-          ["Zuzia", "Ale super transmisja!"],
-          ["Bartek", "Pozdro z Krakowa!"],
-          ["Kuba", "Właśnie dołączyłem, co mnie ominęło?"],
-          ["Nina", "Zostawiam łapkę w górę 👍"],
-          ["Mati", "O której następny live?"],
-          ["Lena", "Fajnie, że robisz transmisję!"],
-          ["Adrian", "Ile czasu zajmuje montaż filmu?"],
-          ["Wiki", "Oglądam od początku 😄"],
-          ["Oskar", "Ten kanał rośnie w oczach!"],
-          ["Iga", "Jaki temat następnego odcinka?"],
-          ["Dawid", "Pozdrawiam ekipę! 🔥"],
-          ["Szymon", "Dobra energia na tym live"],
-          ["Ania", "Pokażesz kulisy nagrywania?"],
-          ["Tomek", "Pierwszy raz tutaj, zostaję!"],
-          ["Pola", "Super pomysł z tym materiałem"],
-          ["Michał", "Dzięki za odpowiedź!"],
-          ["Emilia", "Kto ogląda z Warszawy?"],
-          ["Rafał", "Ale szybko leci ten live"],
-          ["Nadia", "Subik leci!"],
-          ["Patryk", "Może zrobisz Q&A?"],
-          ["Kinga", "Czekam na nowy film ❤️"],
-          ["Wojtek", "Jaki sprzęt polecasz na start?"],
-          ["Sara", "Miłego oglądania wszystkim!"],
-          ["Igor", "Gratulacje za progres kanału!"],
-          ["Ewa", "Możesz opowiedzieć więcej?"],
-          ["Łukasz", "Dźwięk jest super"],
-          ["Zosia", "Ale fajna społeczność!"],
-          ["Maks", "Już prawie 1k subów?"],
-          ["Alicja", "Kto czeka na kolejny odcinek?"],
-          ["Janek", "Dobra robota, twórco!"]
+          "Hej, wpadłem właśnie 👋", "Pozdrowienia dla całego czatu!", "Ale fajny klimat tutaj ✨",
+          "Kiedy następny film?", "Zostawiam łapkę w górę 👍", "Oglądam od samego początku!",
+          "Dobra energia na tym live 🔥", "Jaki temat następnego odcinka?", "Miłego oglądania wszystkim!",
+          "Pierwszy raz na kanale, zostaję!", "Dzięki za odpowiedź!", "Pozdro z Krakowa!",
+          "Kto ogląda z Warszawy?", "Może zrobisz Q&A?", "Czekam na nowy film ❤️",
+          "Jaki sprzęt polecasz na start?", "Gratulacje za progres kanału!", "Dźwięk jest super",
+          "Ale fajna społeczność!", "Kto czeka na następny odcinek?", "Pokażesz kulisy nagrywania?",
+          "Ile czasu zajmuje montaż filmu?", "O której następny live?", "Mega pomysł na materiał!",
+          "Pozdrowienia z Gdańska!", "Kto jest tu od pierwszego filmu?", "Wbijajcie suby!",
+          "Ten kanał szybko rośnie!", "Dawaj jeszcze jedną historię 😄", "Co dziś nagrywasz?",
+          "Masz świetne poczucie humoru!", "Oglądam na telefonie 📱", "Ktoś ogląda z Wrocławia?",
+          "Niech live trwa jak najdłużej!", "Ale szybko leci czas na tym live", "Super, że jesteś!",
+          "Pozdro z Poznania!", "Jaki będzie kolejny challenge?", "Dobra robota, twórco!",
+          "To mój ulubiony kanał!", "Kto jest tu nowy?", "Lecimy po kolejny kamień milowy!",
+          "Możesz opowiedzieć więcej?", "Ale tu dzisiaj dużo osób!", "Jak minął dzień?",
+          "Pokaż setup!", "Kawa czy herbata podczas montażu? ☕", "Jaki program do edycji polecasz?",
+          "To najlepszy moment dzisiejszego live!", "Włączcie powiadomienia 🔔", "Pozdro dla moderatorów!",
+          "Kto ogląda z zagranicy?", "Super jakość obrazu!", "Będzie kiedyś vlog?",
+          "Czy planujesz współpracę z innymi twórcami?", "Jaki jest twój ulubiony film na kanale?",
+          "Wpadłem tylko na chwilę, a zostaję!", "Ale emocje!", "Możesz powtórzyć ostatnią rzecz?",
+          "Zrób kiedyś live z widzami!", "Czekam na kulisy projektu!", "Pozdrowienia z Łodzi!",
+          "Ktoś ogląda po szkole?", "Ten format jest świetny", "Dzięki za dzisiejszy live!",
+          "Jak wpadłeś na ten pomysł?", "Masz super ekipę!", "Kiedy możemy spodziewać się premiery?",
+          "Piona dla wszystkich na czacie! ✋", "To było naprawdę ciekawe", "Oglądam każdy odcinek!",
+          "Czy nagrasz o tym osobny film?", "Ale niespodzianka!", "Pozdro z Katowic!",
+          "Kto pamięta pierwszy odcinek?", "Nie mogę się doczekać kolejnej części",
+          "Masz bardzo fajny głos", "Dobra muzyka na wejściu 🎵", "Zostańmy jeszcze chwilę!",
+          "Zrobiło się tu naprawdę tłoczno", "Świetny pomysł z tym live", "Ktoś nagrywa notatki?",
+          "Jaki temat najbardziej lubisz nagrywać?", "Pokaż kiedyś dzień z życia",
+          "Cześć z Białegostoku!", "Ale czat dziś szybko leci", "Miło was wszystkich widzieć!",
+          "To powinno mieć milion wyświetleń", "Czy będzie druga część?", "Dzięki za inspirację!",
+          "O której zwykle publikujesz filmy?", "Właśnie wysłałem link znajomym",
+          "Super, że odpowiadasz na pytania", "Ten kanał zasługuje na więcej!", "Kto tu ogląda z rodziną?",
+          "Jaki był twój pierwszy film?", "Ale fajna niespodzianka dla widzów", "Wpadnę też na następny live!",
+          "Pozdro z Lublina!", "Mam dokładnie takie samo zdanie", "Czat robi dziś robotę!",
+          "Ciekawe, jak to się skończy", "Pokaż więcej takich materiałów!", "Mega miło spędzony czas",
+          "Ktoś już widział najnowszy film?", "Ile trwa przygotowanie takiego odcinka?",
+          "Oby ten kanał dalej tak rósł!", "Jesteście super ekipą ❤️", "Najlepszy live w tym tygodniu!",
+          "Dołączam do ekipy!", "Możemy zrobić szybkie głosowanie?", "Pozdro z Torunia!",
+          "Kto ogląda w nocy?", "Ale dziś aktywny czat!", "Warto było wpaść!",
+          "Jestem tu od kilku minut i już mi się podoba", "Może pogadamy o nowych planach?",
+          "Ktoś jeszcze czeka na premierę?", "Dawaj, dasz radę!", "To był świetny odcinek",
+          "Słychać cię bardzo dobrze", "Kto ogląda z telefonu?", "Uśmiech dla czatu 😄",
+          "Fajnie, że robisz coś regularnie", "Kolejny sub właśnie wpadł!", "Pozdro dla wszystkich nowych widzów!",
+          "Dobrze się tego słucha", "Zostańcie do końca!", "Ten pomysł naprawdę wypalił",
+          "Jaki będzie następny cel kanału?", "Pozdro z Rzeszowa!", "Dużo serduszek dla czatu ❤️",
+          "Oglądam i kibicuję!", "Masz coraz lepsze materiały!", "Czat pozdrawia twórcę!",
+          "Kto tu przyszedł z polecanych?", "Zróbmy rekord widzów!", "Niech wpadają kolejne pytania!",
+          "Miłego wieczoru dla wszystkich!", "To była dobra decyzja, żeby kliknąć live",
+          "Dawaj znać, kiedy kolejny odcinek!", "Ale szybko przybywa nowych osób",
+          "Oby więcej takich transmisji!", "Super odpowiedź, dzięki!", "Pozdro z całej Polski!"
         ];
+        const names = ["Maja", "Kacper", "Ola", "Filip", "Zuzia", "Bartek", "Kuba", "Nina", "Mati", "Lena", "Adrian", "Wiki", "Oskar", "Iga", "Dawid", "Szymon", "Ania", "Tomek", "Pola", "Michał", "Emilia", "Rafał", "Nadia", "Patryk", "Kinga", "Wojtek", "Sara", "Igor", "Ewa", "Łukasz", "Zosia", "Maks", "Alicja", "Janek"];
         const viewers = liveViewers();
-        const commentChance = Math.min(0.92, 0.2 + Math.log10(viewers + 1) * 0.22);
-        if (Math.random() < commentChance) {
-          const [name, message] = messages[Math.floor(Math.random() * messages.length)];
+        const subscribers = totals().subs;
+        const activity = logarithm10(subscribers + 1n);
+        const commentChance = Math.min(0.99, 0.2 + logarithm10(viewers + 1n) * 0.22 + activity * 0.04);
+        const batchSize = Math.min(20, 1 + Math.floor(activity / 1.5));
+        for (let index = 0; index < batchSize && Math.random() < commentChance; index += 1) {
+          const name = names[Math.floor(Math.random() * names.length)];
+          const message = messages[Math.floor(Math.random() * messages.length)];
           addChatMessage(name, message);
         }
-        const delay = Math.max(650, 12000 / (1 + Math.sqrt(viewers) * 0.45));
+        const delay = Math.max(400, 12000 / (1 + Math.sqrt(Number(activity + 1)) * Math.sqrt(Number(activity + 1)) * 0.16 + Math.sqrt(Number(viewers)) * 0.45));
         chatTimer = setTimeout(scheduleChatMessage, delay);
       }
       function stopCamera() {
@@ -282,8 +395,8 @@
         clearInterval(chatTimer);
         chatTimer = null;
         stopCamera();
-        state.liveStats.likes = Math.floor(state.liveStats.views * 0.064);
-        state.liveStats.subs = Math.floor(state.liveStats.views * 0.012);
+        state.liveStats.likes = (asCount(state.liveStats.views) * 64n / 1000n).toString();
+        state.liveStats.subs = (asCount(state.liveStats.views) * 12n / 1000n).toString();
         saveState();
         render();
         showToast("Transmisja zakończona. Jej statystyki zapisano na kanale.");
@@ -291,14 +404,54 @@
       function updateLive() {
         if (!activeLive) return;
         activeLive.elapsedSeconds += 1;
-        state.liveStats.views += Math.round(liveViewers() * SIM_SPEED / 120);
-        state.liveStats.likes = Math.floor(state.liveStats.views * 0.064);
-        state.liveStats.subs = Math.floor(state.liveStats.views * 0.012);
+        state.liveStats.views = (asCount(state.liveStats.views) + liveViewers() * BigInt(SIM_SPEED) / 120n).toString();
+        state.liveStats.likes = (asCount(state.liveStats.views) * 64n / 1000n).toString();
+        state.liveStats.subs = (asCount(state.liveStats.views) * 12n / 1000n).toString();
+        if (activeLive.elapsedSeconds % 10 === 0) {
+          const amount = Math.floor(Math.random() * donationLimit()) + 1;
+          state.liveStats.donations = (asCount(state.liveStats.donations) + BigInt(amount)).toString();
+          const names = ["Maja", "Kacper", "Ola", "Filip", "Zuzia", "Bartek", "Nina", "Kuba", "Lena", "Oskar"];
+          addDonationMessage(names[Math.floor(Math.random() * names.length)], amount);
+        }
+      }
+      function largeNumberUnit(value, forms) {
+        const lastTwo = value % 100n;
+        const lastDigit = value % 10n;
+        if (value === 1n) return forms[0];
+        if (lastDigit >= 2n && lastDigit <= 4n && (lastTwo < 12n || lastTwo > 14n)) return forms[2];
+        return forms[3];
       }
       function shortNumber(value) {
-        if (value >= 1000000) return (value / 1000000).toLocaleString("pl-PL", { maximumFractionDigits: 1 }) + " mln";
-        if (value >= 10000) return (value / 1000).toLocaleString("pl-PL", { maximumFractionDigits: 1 }) + " tys.";
-        return formatter.format(value);
+        const count = asCount(value);
+        if (count < 1000n) return formatter.format(count);
+        if (count < 1000000n) {
+          const thousandTenths = (count * 10n + 500n) / 1000n;
+          if (thousandTenths >= 10000n) return `1 ${largeNumberUnits[0][0]}`;
+          const amount = Number(thousandTenths) / 10;
+          return `${compactFormatter.format(amount)} tys.`;
+        }
+
+        const digits = count.toString().length;
+        let unitIndex = Math.floor((digits - 1) / 3) - 2;
+        if (unitIndex >= largeNumberUnits.length) {
+          return `${scientificCoefficient(count)} × 10^${digits - 1}`;
+        }
+        let divisor = 10n ** BigInt((unitIndex + 2) * 3);
+        let amountTenths = (count * 10n + divisor / 2n) / divisor;
+        if (amountTenths >= 10000n && unitIndex < largeNumberUnits.length - 1) {
+          unitIndex += 1;
+          divisor *= 1000n;
+          amountTenths = (count * 10n + divisor / 2n) / divisor;
+        }
+        const whole = amountTenths / 10n;
+        const fraction = amountTenths % 10n;
+        const amount = fraction === 0n ? formatter.format(whole) : `${formatter.format(whole)},${fraction}`;
+        return `${amount} ${largeNumberUnit(whole, largeNumberUnits[unitIndex])}`;
+      }
+      function scientificCoefficient(value) {
+        const digits = value.toString();
+        if (digits.length === 1 || digits[1] === "0") return digits[0];
+        return `${digits[0]},${digits[1]}`;
       }
       function escapeHTML(value) {
         return String(value).replace(/[&<>"']/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[char]);
@@ -347,7 +500,7 @@
       }
       function render() {
         const total = totals();
-        if (!state.ads.unlockedAt && total.subs >= AD_THRESHOLD) {
+        if (!state.ads.unlockedAt && total.subs >= BigInt(AD_THRESHOLD)) {
           state.ads.unlockedAt = Date.now();
           state.ads.viewsAtUnlock = total.views;
           state.ads.lastProcessedViews = total.views;
@@ -368,8 +521,10 @@
         $("live-total-views").textContent = shortNumber(state.liveStats.views);
         $("live-total-likes").textContent = shortNumber(state.liveStats.likes);
         $("live-total-subs").textContent = shortNumber(state.liveStats.subs);
+        $("live-donation-total").textContent = `${shortNumber(state.liveStats.donations)} zł`;
+        $("live-donation-limit").textContent = `Donate od 1 zł do ${formatter.format(donationLimit())} zł · nowy co 10 sekund`;
         $("live-status-value").textContent = activeLive ? "● Live" : "Offline";
-        $("live-viewers").textContent = formatter.format(liveViewers());
+        $("live-viewers").textContent = shortNumber(liveViewers());
         $("live-timer").textContent = activeLive ? formatDuration(activeLive.elapsedSeconds) : "00:00";
         $("live-badge").hidden = !activeLive;
         $("stage-placeholder").hidden = Boolean(cameraStream);
@@ -382,11 +537,13 @@
         $("chat-status").textContent = activeLive ? "NA ŻYWO" : "OCZEKIWANIE";
         $("chat-status").classList.toggle("live", Boolean(activeLive));
 
-        $("ad-balance").textContent = formatMoney(state.ads.balance);
+        $("ad-balance").textContent = formatBalance(state.ads.balanceMicros);
         $("eligible-views").textContent = shortNumber(state.ads.monetizedViews);
         $("ad-rate-display").textContent = formatMoney(state.ads.rate);
-        $("monetization-progress-label").textContent = `${formatter.format(Math.min(total.subs, AD_THRESHOLD))} / ${formatter.format(AD_THRESHOLD)}`;
-        $("monetization-progress-bar").style.width = `${Math.min(100, total.subs / AD_THRESHOLD * 100)}%`;
+        const threshold = BigInt(AD_THRESHOLD);
+        const progressSubs = total.subs < threshold ? total.subs : threshold;
+        $("monetization-progress-label").textContent = `${formatter.format(progressSubs)} / ${formatter.format(AD_THRESHOLD)}`;
+        $("monetization-progress-bar").style.width = `${Number(progressSubs) / AD_THRESHOLD * 100}%`;
         $("monetization-card").classList.toggle("unlocked", Boolean(state.ads.unlockedAt));
         $("monetization-status").textContent = state.ads.unlockedAt ? "PROGRAM PARTNERSKI ODBLOKOWANY" : "WYMAGANE 1 000 SUBSKRYBENTÓW";
         $("monetization-title").textContent = state.ads.unlockedAt ? "Zarabianie z reklam jest aktywne!" : "Jeszcze chwila do zarabiania";
@@ -401,17 +558,17 @@
             : "Ustawienia są zapisane. Reklamy zaczną przynosić przychód po osiągnięciu 1 000 subskrybentów.";
 
         const levels = [
-          { name:"Początkujący twórca", target:1000 },
-          { name:"Wschodząca gwiazda", target:10000 },
-          { name:"Internetowa sensacja", target:100000 },
-          { name:"Legendarna sława", target:1000000 }
+          { name:"Początkujący twórca", target:1000n },
+          { name:"Wschodząca gwiazda", target:10000n },
+          { name:"Internetowa sensacja", target:100000n },
+          { name:"Legendarna sława", target:1000000n }
         ];
-        let level = levels.find((item) => total.subs < item.target) || levels[levels.length - 1];
-        const previousTarget = level.target === 1000 ? 0 : level.target / 10;
-        const progress = Math.max(0, Math.min(100, (total.subs - previousTarget) / (level.target - previousTarget) * 100));
-        $("rank-name").textContent = total.subs >= 1000000 ? "Legendarna sława" : level.name;
-        $("rank-progress").textContent = total.subs >= 1000000 ? "Maksymalny poziom!" : `${shortNumber(total.subs)} / ${shortNumber(level.target)} subów`;
-        $("rank-bar").style.width = `${total.subs >= 1000000 ? 100 : progress}%`;
+        const level = levels.find((item) => total.subs < item.target) || levels[levels.length - 1];
+        const previousTarget = level.target === 1000n ? 0n : level.target / 10n;
+        const progress = Math.max(0, Math.min(100, Number(total.subs - previousTarget) / Number(level.target - previousTarget) * 100));
+        $("rank-name").textContent = total.subs >= 1000000n ? "Legendarna sława" : level.name;
+        $("rank-progress").textContent = total.subs >= 1000000n ? "Maksymalny poziom!" : `${shortNumber(total.subs)} / ${shortNumber(level.target)} subów`;
+        $("rank-bar").style.width = `${total.subs >= 1000000n ? 100 : progress}%`;
 
         gridIds.forEach((id) => {
           const grid = $(id);
@@ -451,12 +608,81 @@
         $("modal").classList.add("open");
         $("title-input").focus();
       }
+      $("profile-button").addEventListener("click", () => {
+        const menu = $("profile-menu");
+        menu.hidden = !menu.hidden;
+        $("profile-button").setAttribute("aria-expanded", String(!menu.hidden));
+      });
+      $("reset-button").addEventListener("click", resetEverything);
+      document.addEventListener("click", (event) => {
+        if (!event.target.closest(".profile-menu-wrap")) {
+          $("profile-menu").hidden = true;
+          $("profile-button").setAttribute("aria-expanded", "false");
+        }
+      });
       function closeModal() {
         $("modal").classList.remove("open");
         $("upload-form").reset();
         selectedFile = null;
         $("file-label").textContent = "Kliknij lub przeciągnij plik tutaj";
         $("publish-button").disabled = true;
+      }
+      async function resetEverything() {
+        if (!window.confirm("Czy na pewno chcesz zresetować wszystko? Zostaną usunięte filmy, zdjęcia, statystyki i ustawienia. Tej operacji nie można cofnąć.")) return;
+
+        let resetError = null;
+        try { localStorage.removeItem(STORAGE_KEY); }
+        catch (error) {
+          resetError = error;
+          console.error("Nie udało się usunąć statystyk z pamięci przeglądarki:", error);
+        }
+        try { await clearMediaStore(); }
+        catch (error) {
+          resetError = resetError || error;
+          console.error("Nie udało się usunąć lokalnych plików kanału:", error);
+        }
+
+        if (activeLive) {
+          clearTimeout(chatTimer);
+          chatTimer = null;
+          activeLive = null;
+        }
+        stopCamera();
+        previewUrls.forEach((url) => URL.revokeObjectURL(url));
+        previewUrls.clear();
+        state = {
+          uploads: [],
+          liveStats: { views: "0", likes: "0", subs: "0", donations: "0" },
+          ads: {
+            unlockedAt: null,
+            viewsAtUnlock: 0,
+            enabled: true,
+            format: "preroll",
+            frequency: 2,
+            rate: 8.5,
+            monetizedViews: 0,
+            balanceMicros: "0",
+            lastProcessedViews: null
+          }
+        };
+        $("search").value = "";
+        $("ad-enabled").checked = true;
+        $("ad-format").value = "preroll";
+        $("ad-frequency").value = "2";
+        $("ad-rate").value = "8.5";
+        closeModal();
+        $("profile-menu").hidden = true;
+        $("profile-button").setAttribute("aria-expanded", "false");
+        document.querySelectorAll(".nav-link").forEach((item) => item.classList.toggle("active", item.dataset.page === "home"));
+        document.querySelectorAll(".page-view").forEach((page) => { page.hidden = page.id !== "home"; });
+        lastAutosave = Date.now();
+        render();
+
+        if (resetError) {
+          showToast("Kanał zresetowano, ale nie udało się usunąć wszystkich danych. Odśwież stronę i spróbuj ponownie.");
+        } else {
+          showToast("Wszystko zresetowane. Zaczynasz od zera!");
+        }
       }
       function selectFile(file) {
         if (!file) return;
@@ -574,6 +800,10 @@
       $("ad-frequency").value = String(state.ads.frequency);
       $("ad-rate").value = String(state.ads.rate);
       render();
+      window.addEventListener("pagehide", saveState);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") saveState();
+      });
       setInterval(() => {
         updateLive();
         render();
