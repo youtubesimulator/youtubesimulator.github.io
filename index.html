@@ -11,7 +11,15 @@
   <header class="topbar">
     <div class="brand" aria-label="YouVibe"><span class="brand-mark">▶</span><span>You<span>Vibe</span></span></div>
     <label class="search"><input id="search" type="search" placeholder="Szukaj w swoich materiałach…" aria-label="Szukaj w swoich materiałach"><span>⌕</span></label>
-    <div class="top-actions"><span class="avatar" aria-label="Twój profil">Y</span></div>
+    <div class="top-actions">
+      <div class="profile-menu-wrap">
+        <button class="avatar" id="profile-button" type="button" aria-label="Otwórz menu profilu" aria-expanded="false" aria-controls="profile-menu">Y</button>
+        <div class="profile-menu" id="profile-menu" hidden>
+          <div class="profile-menu-heading">Twój profil</div>
+          <button class="profile-reset" id="reset-button" type="button"><span aria-hidden="true">↻</span> Resetuj wszystko</button>
+        </div>
+      </div>
+    </div>
   </header>
   <div class="layout">
     <aside aria-label="Nawigacja">
@@ -78,10 +86,11 @@
               <button class="primary" id="start-live" type="button">▶ Rozpocznij live</button>
               <button class="stop-live" id="stop-live" type="button" hidden>Zakończ live</button>
             </div>
+            <div class="donation-summary"><span>Łącznie zebrano</span><strong id="live-donation-total">0 zł</strong><small id="live-donation-limit">Donate od 1 zł do 1 zł · nowy co 10 sekund</small></div>
             <p class="live-disclaimer">Podgląd kamery działa lokalnie na tym urządzeniu.</p>
           </div>
           <div class="chat-panel">
-            <div class="chat-heading"><div><strong>Czat na żywo</strong><span>Symulowani widzowie</span></div><span class="chat-status" id="chat-status">OCZEKIWANIE</span></div>
+            <div class="chat-heading"><div><strong>Czat na żywo</strong><span>Dołączają do rozmowy</span></div><span class="chat-status" id="chat-status">OCZEKIWANIE</span></div>
             <div class="chat-messages" id="chat-messages" aria-live="polite"><div class="chat-placeholder">Wiadomości pojawią się po rozpoczęciu transmisji.</div></div>
             <div class="chat-footer">Czat transmisji</div>
           </div>
