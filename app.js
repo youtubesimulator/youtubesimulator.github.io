@@ -10,6 +10,29 @@
       const AD_FORMATS = ["preroll", "midroll", "display", "mixed"];
       const AD_FORMAT_FACTORS = { preroll: 1, midroll: 1.25, display: 0.65, mixed: 1.45 };
       const MAX_BYTES = 100 * 1024 * 1024;
+      const LIVE_CHAT_NAMES = [
+        "Maja", "Kacper", "Ola", "Filip", "Zuzia", "Bartek", "Kuba", "Nina", "Mati", "Lena",
+        "Adrian", "Wiki", "Oskar", "Iga", "Dawid", "Szymon", "Ania", "Tomek", "Pola", "Michał",
+        "Emilia", "Rafał", "Nadia", "Patryk", "Kinga", "Wojtek", "Sara", "Igor", "Ewa", "Łukasz",
+        "Zosia", "Maks", "Alicja", "Janek", "pixelowy_kot", "KawaZ mlekiem", "Luna.exe",
+        "misiek_online", "Kaktusik", "pan_od_memow", "niebieski_smok", "TurboMarchewka",
+        "księżycowy_wilk", "kocur_z_netem", "PandaNaLive", "spokojny_widz", "MistrzKliku",
+        "malina🍓", "GraczBezNicka", "SzybkiJeż", "nocny_marek", "KosmicznaMysz", "hejka_tu_ja",
+        "BananowySzejk", "RudyLis", "SowaPoGodzinach", "wiatr_z_polnocy", "MiniNinja",
+        "CichyObserwator", "ziom_z_sasiedztwa", "TostowyRycerz", "Piegus", "FioletowaChmurka",
+        "MrocznyToast", "RowerowyKuba", "KropkaTV", "ChillowyTryb", "SzefKanapek",
+        "WiewiorkaLive", "Kompocik", "EchoCzatu", "zielony_ludek", "MruczekOnline",
+        "Błyskawica", "KsiążkowyRekin", "SernikTeam", "widz_123", "PaniOdKawy",
+        "KrolikNaCzacie", "JedenZWidzow", "Kredka", "ChrupkiMaster", "NocnaSowa",
+        "PikselowyLis", "MiodowyMiś", "DobraFala", "KotekZOsiedla", "WafelWafelek",
+        "Lisek_77", "WpadlemNaChwile", "ZłotyBorsuk", "MalaPlaneta", "ziomalski_klimat",
+        "Kropelka", "MangoManiak", "SzalonyOgórek", "TajemniczyWidz", "RóżowyPingwin",
+        "PiatekWieczor", "BłękitnySen", "KapitanHerbata", "KredensowyNinja", "FokaNaFali",
+        "MalyWulkan", "KrisuLive", "CynamonowyToast", "KropkaNaMapie", "ZwyklyGracz",
+        "PuchatyChomik", "Kawa_i_stream", "NiezlyVibe", "ZaspanyKot", "CzatowyDuch",
+        "MorskaBryza", "KubekKakao", "PstrykPstryk", "Borsuk_Online", "MilaMila",
+        "SrebrnyWilk", "LimonkowyNick", "JestemTu", "EkipaLive", "WidzZPrzypadku"
+      ];
       const formatter = new Intl.NumberFormat("pl-PL");
       const compactFormatter = new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 1 });
       const illionPrefixes = [
@@ -163,9 +186,7 @@
           reachFraction = 100;
         }
         const safeSubscribers = asCount(subscribers);
-        const channelViewCap = safeSubscribers < 100n
-          ? BigInt(2500 + Number(safeSubscribers / 10n) * 300)
-          : safeSubscribers * safeSubscribers;
+        const channelViewCap = safeSubscribers * 1000n;
         const maxViews = channelViewCap * BigInt(Math.floor(reachFraction * 10000)) / 10000n;
         const decayRanges = {
           spokojny: [600, 1800],
@@ -175,7 +196,7 @@
         };
         const [minimumDecay, maximumDecay] = decayRanges[tier];
         upload.reach = {
-          modelVersion: 5,
+          modelVersion: 6,
           subscribersAtPublish: safeSubscribers.toString(),
           channelViewCap: channelViewCap.toString(),
           maxViews: maxViews.toString(),
@@ -190,11 +211,11 @@
           return sum + metrics(upload, index).subs;
         }, 0n);
         state.uploads.forEach((upload) => {
-          if (upload.reach?.modelVersion === 5
+          if (upload.reach?.modelVersion === 6
             && typeof upload.reach.maxViews === "string"
             && Number.isFinite(upload.reach.decaySeconds)) return;
-          const subscribersAtPublish = Number.isFinite(upload.reach?.subscribersAtPublish)
-            ? upload.reach.subscribersAtPublish
+          const subscribersAtPublish = upload.reach?.subscribersAtPublish != null
+            ? asCount(upload.reach.subscribersAtPublish)
             : knownSubscribers;
           createReach(upload, subscribersAtPublish);
           changed = true;
@@ -255,8 +276,8 @@
         return viewers > 0n ? viewers : 1n;
       }
       function donationLimit() {
-        const limit = integerSquareRoot(totals().subs) + 1n;
-        return Number(limit > 1000n ? 1000n : limit);
+        const limit = asCount(totals().subs) / 100n + 1n;
+        return Number(limit > 100000n ? 100000n : limit);
       }
       function integerSquareRoot(value) {
         if (value < 2n) return value;
@@ -362,16 +383,60 @@
           "Kto tu przyszedł z polecanych?", "Zróbmy rekord widzów!", "Niech wpadają kolejne pytania!",
           "Miłego wieczoru dla wszystkich!", "To była dobra decyzja, żeby kliknąć live",
           "Dawaj znać, kiedy kolejny odcinek!", "Ale szybko przybywa nowych osób",
-          "Oby więcej takich transmisji!", "Super odpowiedź, dzięki!", "Pozdro z całej Polski!"
+          "Oby więcej takich transmisji!", "Super odpowiedź, dzięki!", "Pozdro z całej Polski!",
+          "Właśnie zrobiłem sobie herbatę i odpalam live ☕", "Ten temat mógłbym słuchać godzinami",
+          "Ktoś tu ogląda od początku transmisji?", "Daj znać, co planujesz na weekend!",
+          "Wpadłem z polecanych i zostaję 😄", "Ale dobrze się tego słucha w tle",
+          "Pozdrawiam wszystkich oglądających po pracy!", "Może kiedyś zrobisz live z gier?",
+          "Dzięki za poprawę humoru dzisiaj ❤️", "Fajnie, że czytasz wiadomości z czatu",
+          "Kto też właśnie je kolację?", "Jest tu ktoś z małej miejscowości?",
+          "Widać, że wkładasz w to dużo serca", "Czat ma dziś naprawdę dobry nastrój",
+          "To jest dokładnie ten content, którego szukałem", "Zostańmy do samego końca!",
+          "Może opowiesz, jak wygląda twój dzień?", "Pozdrowienia dla cichych widzów 👋",
+          "Ten live leci szybciej niż się spodziewałem", "Dobra decyzja z tym tematem",
+          "Przydałby się odcinek z odpowiedziami na pytania", "Ktoś ogląda z drugiego końca Polski?",
+          "Niech ten kanał dobije dziś do kolejnego celu!", "Ale miło tu wpaść po ciężkim dniu",
+          "Włączam powiadomienia, żeby nie przegapić następnego live 🔔",
+          "Masz bardzo przyjemny sposób opowiadania", "Czy będzie kiedyś spotkanie z widzami?",
+          "Ten czat jest lepszy niż niejeden komentarz pod filmem",
+          "Kto jeszcze nadrabia starsze materiały?", "Dziś wyjątkowo dużo znajomych nicków!",
+          "Oby algorytm podsunął ten live kolejnym osobom", "Super, że robisz to regularnie",
+          "Pozdro dla każdego, kto ogląda na słuchawkach 🎧", "To był mój najlepszy klik dzisiaj",
+          "Jakie masz plany na kolejny materiał?", "Nie wiedziałem, że tak szybko minie godzina",
+          "Miło widzieć, jak społeczność się rozkręca", "Kto jest tu pierwszy raz na live?",
+          "Bardzo fajnie prowadzisz tę rozmowę", "Zróbmy falę serduszek dla twórcy ❤️",
+          "Wpadnę jutro sprawdzić nowy film", "Pozdrowienia z nocnej zmiany!",
+          "Czat, jesteście dziś niesamowici", "Może pokażesz kiedyś proces montażu?",
+          "Oglądam z tabletu i wszystko dobrze widać", "Ten pomysł ma naprawdę duży potencjał",
+          "Przybijam wirtualną piątkę wszystkim 👋", "Fajnie, że można tu odpocząć",
+          "Kto ma już ustawione przypomnienie na kolejny live?", "Warto było zostać na transmisji",
+          "Pozdro dla ekipy, która pomaga przy kanale!", "Mam nadzieję, że będzie więcej takich rozmów",
+          "Niech czat poda swoje propozycje tematów!", "Z każdym live jest coraz lepsza atmosfera",
+          "Dobra energia aż przebija przez ekran ✨", "Zaraz podeślę ten kanał znajomym",
+          "Kto ogląda z kubkiem czegoś ciepłego?", "Dzięki za luźny i fajny wieczór",
+          "Fajnie zobaczyć, jak kanał rośnie krok po kroku", "Mam podobne doświadczenia!",
+          "Przydałaby się jeszcze jedna taka transmisja w tygodniu",
+          "Niech nowi widzowie dadzą znać skąd są!", "Zostawiam łapkę i lecę dalej oglądać 👍",
+          "Miło, że odpowiadasz nawet przy szybkim czacie", "Ale tu przytulny klimat",
+          "Ciekawe, jaki rekord widzów dziś zrobimy", "Może zrobisz kiedyś odcinek zza kulis?",
+          "Wpadłem na minutę, minęło pół godziny 😅", "Super pomysł, żeby pogadać na żywo",
+          "Dzięki za wszystkie materiały, dobra robota!", "Ktoś tu jeszcze ogląda z konsoli?",
+          "Ten live powinien mieć własną playlistę", "Dawaj, czat trzyma kciuki!",
+          "Mój ulubiony moment to właśnie teraz", "Dobrze, że dziś odpaliłem YouTube",
+          "Pozdrawiam widzów z każdej strefy czasowej 🌍", "Czat, napiszcie jaki film obejrzeć później",
+          "Widać coraz większą ekipę na kanale", "Zostańmy jeszcze na kilka pytań",
+          "Ten kanał ma swój wyjątkowy charakter", "Chętnie zobaczę więcej takich spontanicznych live",
+          "Miłego wieczoru, wszystkim obecnym!", "Ktoś tu kibicuje od pierwszych subów?",
+          "Przyjemnie słuchać, jak opowiadasz o kulisach", "Oglądam z psem, też słucha 🐶",
+          "Czekam na następny kamień milowy kanału!", "Wartościowy live, dzięki za poświęcony czas"
         ];
-        const names = ["Maja", "Kacper", "Ola", "Filip", "Zuzia", "Bartek", "Kuba", "Nina", "Mati", "Lena", "Adrian", "Wiki", "Oskar", "Iga", "Dawid", "Szymon", "Ania", "Tomek", "Pola", "Michał", "Emilia", "Rafał", "Nadia", "Patryk", "Kinga", "Wojtek", "Sara", "Igor", "Ewa", "Łukasz", "Zosia", "Maks", "Alicja", "Janek"];
         const viewers = liveViewers();
         const subscribers = totals().subs;
         const activity = logarithm10(subscribers + 1n);
         const commentChance = Math.min(0.99, 0.2 + logarithm10(viewers + 1n) * 0.22 + activity * 0.04);
         const batchSize = Math.min(20, 1 + Math.floor(activity / 1.5));
         for (let index = 0; index < batchSize && Math.random() < commentChance; index += 1) {
-          const name = names[Math.floor(Math.random() * names.length)];
+          const name = LIVE_CHAT_NAMES[Math.floor(Math.random() * LIVE_CHAT_NAMES.length)];
           const message = messages[Math.floor(Math.random() * messages.length)];
           addChatMessage(name, message);
         }
@@ -410,8 +475,7 @@
         if (activeLive.elapsedSeconds % 10 === 0) {
           const amount = Math.floor(Math.random() * donationLimit()) + 1;
           state.liveStats.donations = (asCount(state.liveStats.donations) + BigInt(amount)).toString();
-          const names = ["Maja", "Kacper", "Ola", "Filip", "Zuzia", "Bartek", "Nina", "Kuba", "Lena", "Oskar"];
-          addDonationMessage(names[Math.floor(Math.random() * names.length)], amount);
+          addDonationMessage(LIVE_CHAT_NAMES[Math.floor(Math.random() * LIVE_CHAT_NAMES.length)], amount);
         }
       }
       function largeNumberUnit(value, forms) {
