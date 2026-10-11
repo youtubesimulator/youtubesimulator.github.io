@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101112">
   <title>YouVibe — Twoja kariera twórcy</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
   <header class="topbar">
@@ -16,7 +16,7 @@
         <button class="avatar" id="profile-button" type="button" aria-label="Otwórz menu profilu" aria-expanded="false" aria-controls="profile-menu"><img id="header-avatar-image" alt="" hidden><span id="header-avatar-fallback">Y</span></button>
         <div class="profile-menu" id="profile-menu" hidden>
           <div class="profile-menu-heading">Twój profil</div>
-          <div class="profile-version">Wersja 1</div>
+          <div class="profile-version">Wersja 4</div>
           <button class="profile-reset" id="reset-button" type="button"><span aria-hidden="true">↻</span> Resetuj wszystko</button>
         </div>
       </div>
@@ -51,7 +51,7 @@
           <div class="stat"><div class="stat-top"><span>Polubienia</span><span class="stat-icon">♡</span></div><div class="stat-value" id="total-likes">0</div><div class="stat-foot">↗ za dobre materiały</div></div>
           <div class="stat"><div class="stat-top"><span>Opublikowane</span><span class="stat-icon">▷</span></div><div class="stat-value" id="total-posts">0</div><div class="stat-foot">materiały na kanale</div></div>
         </div>
-        <div class="section-heading"><div><h2>Twoje materiały</h2><p>Pierwszy post gwarantuje 1 subskrybenta. Limit bazowy to max(50, suby × 1000); zwykły zasięg losuje 50–95% limitu, a viral (5% szans) może dać do 100× więcej.</p></div><span class="filter">Wszystkie ▾</span></div>
+        <div class="section-heading"><div><h2>Twoje materiały</h2><p>Pierwszy film gwarantuje 1 subskrybenta po osiągnięciu 10 wyświetleń. Limit bazowy to max(50, suby × 1000); zwykły zasięg losuje 50–95% limitu, a viral (5% szans) może dać do 100× więcej.</p></div><span class="filter">Wszystkie ▾</span></div>
         <div class="grid" id="content-grid">
           <div class="empty" id="empty-state"><div class="empty-icon">＋</div><h3>Twój kanał czeka na pierwszy materiał</h3><p>Dodaj film albo zdjęcie, wybierz tytuł i patrz, jak zaczyna się Twoja przygoda.</p><button class="primary upload-open">＋ Dodaj pierwszy materiał</button></div>
         </div>
@@ -179,6 +179,6 @@
     </form>
   </div>
   <div class="toast" id="toast" role="status"></div>
-    <script src="app.js" defer></script>
+    <script src="app.js?v=4" defer></script>
 </body>
 </html>

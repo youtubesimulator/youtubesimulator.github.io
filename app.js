@@ -235,7 +235,8 @@
         const views = age >= reach.decaySeconds * 7
           ? asCount(reach.maxViews)
           : asCount(reach.maxViews) * BigInt(Math.floor((1 - Math.exp(-age / reach.decaySeconds)) * 1e9)) / 1000000000n;
-        const subs = views * 12n / 1000n + (upload.guaranteedInitialSubscriber ? 1n : 0n);
+        const naturalSubs = views * 12n / 1000n;
+        const subs = upload.guaranteedInitialSubscriber && views >= 10n && naturalSubs === 0n ? 1n : naturalSubs;
         return { views, likes: views * 64n / 1000n, subs };
       }
       function createReach(upload, subscribers) {
@@ -295,12 +296,17 @@
         if (changed) saveState();
       }
       function guaranteeFirstSubscriber() {
-        if (!state.uploads.length || totals().subs > 0n) return;
-        const firstUpload = state.uploads.reduce((first, upload) =>
-          !first || upload.createdAt < first.createdAt ? upload : first, null);
-        if (!firstUpload || firstUpload.guaranteedInitialSubscriber) return;
-        firstUpload.guaranteedInitialSubscriber = true;
-        saveState();
+        const firstVideo = state.uploads
+          .filter((upload) => upload.type.startsWith("video/"))
+          .reduce((first, upload) => !first || upload.createdAt < first.createdAt ? upload : first, null);
+        let changed = false;
+        state.uploads.forEach((upload) => {
+          const shouldGuarantee = upload === firstVideo;
+          if (Boolean(upload.guaranteedInitialSubscriber) === shouldGuarantee) return;
+          upload.guaranteedInitialSubscriber = shouldGuarantee;
+          changed = true;
+        });
+        if (changed) saveState();
       }
       function totals() {
         const total = state.uploads.reduce((sum, upload, index) => {
@@ -1202,7 +1208,8 @@
             title: $("title-input").value.trim() || selectedFile.name,
             type: selectedFile.type,
             createdAt: Date.now(),
-            guaranteedInitialSubscriber: state.uploads.length === 0 && totals().subs === 0n,
+            guaranteedInitialSubscriber: selectedFile.type.startsWith("video/")
+              && !state.uploads.some((upload) => upload.type.startsWith("video/")),
             sponsorships: selectedFile.type.startsWith("video/")
               ? Array.from($("sponsorship-list").querySelectorAll("input:checked"), (input) => {
                 const campaign = COLLABORATION_CAMPAIGNS.find((item) => item.id === input.value);
