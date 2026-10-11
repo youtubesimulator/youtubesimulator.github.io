@@ -255,8 +255,10 @@
           reachFraction = 100;
         }
         const safeSubscribers = asCount(subscribers);
-        const channelViewCap = safeSubscribers * 1000n;
-        const maxViews = channelViewCap * BigInt(Math.floor(reachFraction * 10000)) / 10000n;
+        const subscriberViewCap = safeSubscribers * 1000n;
+        const channelViewCap = subscriberViewCap < 50n ? 50n : subscriberViewCap;
+        const calculatedMaxViews = channelViewCap * BigInt(Math.floor(reachFraction * 10000)) / 10000n;
+        const maxViews = safeSubscribers === 0n && calculatedMaxViews < 50n ? 50n : calculatedMaxViews;
         const decayRanges = {
           spokojny: [600, 1800],
           standardowy: [1800, 3600],
@@ -265,7 +267,7 @@
         };
         const [minimumDecay, maximumDecay] = decayRanges[tier];
         upload.reach = {
-          modelVersion: 6,
+          modelVersion: 7,
           subscribersAtPublish: safeSubscribers.toString(),
           channelViewCap: channelViewCap.toString(),
           maxViews: maxViews.toString(),
@@ -280,7 +282,7 @@
           return sum + metrics(upload, index).subs;
         }, 0n);
         state.uploads.forEach((upload) => {
-          if (upload.reach?.modelVersion === 6
+          if (upload.reach?.modelVersion === 7
             && typeof upload.reach.maxViews === "string"
             && Number.isFinite(upload.reach.decaySeconds)) return;
           const subscribersAtPublish = upload.reach?.subscribersAtPublish != null
