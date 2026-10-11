@@ -236,7 +236,7 @@
           ? asCount(reach.maxViews)
           : asCount(reach.maxViews) * BigInt(Math.floor((1 - Math.exp(-age / reach.decaySeconds)) * 1e9)) / 1000000000n;
         const naturalSubs = views * 12n / 1000n;
-        const subs = upload.guaranteedInitialSubscriber && views >= 10n && naturalSubs === 0n ? 1n : naturalSubs;
+        const subs = upload.guaranteedInitialSubscriber && naturalSubs === 0n ? 1n : naturalSubs;
         return { views, likes: views * 64n / 1000n, subs };
       }
       function createReach(upload, subscribers) {
@@ -296,12 +296,11 @@
         if (changed) saveState();
       }
       function guaranteeFirstSubscriber() {
-        const firstVideo = state.uploads
-          .filter((upload) => upload.type.startsWith("video/"))
-          .reduce((first, upload) => !first || upload.createdAt < first.createdAt ? upload : first, null);
+        const firstUpload = state.uploads.reduce((first, upload) =>
+          !first || upload.createdAt < first.createdAt ? upload : first, null);
         let changed = false;
         state.uploads.forEach((upload) => {
-          const shouldGuarantee = upload === firstVideo;
+          const shouldGuarantee = upload === firstUpload;
           if (Boolean(upload.guaranteedInitialSubscriber) === shouldGuarantee) return;
           upload.guaranteedInitialSubscriber = shouldGuarantee;
           changed = true;
@@ -1081,7 +1080,7 @@
           uploads: [],
           liveStats: { views: "0", likes: "0", subs: "0", donations: "0", donationBalanceMicros: "0" },
           profile: { name: "Twórca", bio: "", avatarId: null, bannerId: null },
-          collaborations: { balanceMicros: "0" },
+          collaborations: { balanceMicros: "0", activeIds: [], offerIds: [] },
           ads: {
             unlockedAt: null,
             viewsAtUnlock: 0,
@@ -1208,8 +1207,7 @@
             title: $("title-input").value.trim() || selectedFile.name,
             type: selectedFile.type,
             createdAt: Date.now(),
-            guaranteedInitialSubscriber: selectedFile.type.startsWith("video/")
-              && !state.uploads.some((upload) => upload.type.startsWith("video/")),
+            guaranteedInitialSubscriber: state.uploads.length === 0,
             sponsorships: selectedFile.type.startsWith("video/")
               ? Array.from($("sponsorship-list").querySelectorAll("input:checked"), (input) => {
                 const campaign = COLLABORATION_CAMPAIGNS.find((item) => item.id === input.value);
@@ -1231,7 +1229,9 @@
           saveState();
           closeModal();
           render();
-          showToast("Opublikowano! Twoja kariera nabiera tempa ✨");
+          showToast(upload.guaranteedInitialSubscriber
+            ? "Pierwszy subskrybent już wpadł! Twoja kariera ruszyła ✨"
+            : "Opublikowano! Twoja kariera nabiera tempa ✨");
         } catch (error) {
           console.error("Nie udało się opublikować materiału:", error);
           showToast(error.message || "Nie udało się zapisać pliku. Spróbuj ponownie.");
