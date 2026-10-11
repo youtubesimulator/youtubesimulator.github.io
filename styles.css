@@ -246,3 +246,71 @@
       .grid { grid-template-columns:1fr; }
       .thumb { height:190px; }
     }
+    .avatar { position:relative; overflow:hidden; padding:0; }
+    .avatar img,.channel-avatar img,.profile-avatar-preview img { width:100%; height:100%; border-radius:inherit; object-fit:cover; }
+    .channel-panel { position:relative; overflow:hidden; }
+    .channel-banner-image { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.17; }
+    .channel-identity,.channel-avatar { position:relative; z-index:1; }
+    .channel-bio { max-width:650px; margin:7px 0 0 !important; line-height:1.5; }
+    .profile-editor { position:relative; max-width:780px; margin-top:24px; padding:0 24px 24px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); }
+    .profile-banner-preview { height:190px; position:relative; display:grid; place-items:center; overflow:hidden; margin:0 -24px; border-radius:var(--radius) var(--radius) 0 0; background:linear-gradient(120deg,#39242e,#20292d); color:#cbd0d1; font-size:12px; }
+    .profile-banner-preview img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+    .profile-banner-preview span { position:relative; z-index:1; padding:7px 10px; border-radius:999px; background:#0008; }
+    .profile-avatar-preview { position:relative; display:grid; place-items:center; width:88px; height:88px; margin-top:-44px; overflow:hidden; border:4px solid var(--surface); border-radius:50%; background:linear-gradient(140deg,#ffd077,#ff7082); color:#241a1a; font-size:30px; font-weight:900; }
+    .profile-form { max-width:560px; }
+    .profile-form textarea { display:block; width:100%; margin-top:7px; padding:12px 13px; resize:vertical; border:1px solid var(--line); border-radius:10px; color:var(--text); background:#141617; font:inherit; font-size:12px; outline:none; }
+    .profile-form textarea:focus { border-color:#858b8c; }
+    .profile-image-controls { display:flex; flex-wrap:wrap; gap:9px; margin-top:18px; }
+    .profile-file-button { position:relative; overflow:hidden; display:inline-flex; align-items:center; justify-content:center; }
+    .profile-file-button input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+    .profile-image-note { margin:11px 0 0; color:var(--muted); font-size:10px; }
+    .collaboration-balance { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:24px 0; padding:19px 21px; border:1px solid #315c4b; border-radius:15px; background:linear-gradient(110deg,#1d2e27,#1b201e); }
+    .collaboration-balance span,.collaboration-balance strong { display:block; }
+    .collaboration-balance span { color:#b1c9bc; font-size:11px; }
+    .collaboration-balance strong { margin-top:5px; color:var(--mint); font-size:23px; font-variant-numeric:tabular-nums; }
+    .collaboration-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:15px; }
+    .collaboration-card { min-width:0; padding:19px; border:1px solid var(--line); border-radius:15px; background:var(--surface); }
+    .collaboration-card.available { border-color:#355442; }
+    .collaboration-card.locked { opacity:.65; }
+    .collaboration-card-top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .collaboration-brand-icon { display:grid; place-items:center; width:37px; height:37px; border-radius:12px; background:#f7ce751a; color:var(--yellow); font-size:18px; }
+    .collaboration-status { color:var(--mint); font-size:9px; font-weight:850; letter-spacing:.08em; }
+    .locked .collaboration-status { color:#a3a8aa; }
+    .collaboration-card h2 { margin:14px 0 3px; font-size:17px; }
+    .collaboration-category { color:var(--yellow); font-size:10px; }
+    .collaboration-card p { min-height:36px; margin:12px 0; color:var(--muted); font-size:11px; line-height:1.5; }
+    .collaboration-goal { display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-top:1px solid var(--line); font-size:10px; }
+    .collaboration-goal span { color:var(--muted); }
+    .collaboration-goal strong { text-align:right; }
+    .collaboration-requirement { margin-top:7px; color:#aab0b1; font-size:10px; }
+    .collaboration-active-count { margin:-8px 0 13px; color:var(--mint); font-size:10px; font-weight:750; }
+    .collaboration-card .activate-collaboration { width:100%; margin-top:12px; padding:10px 14px; font-size:11px; }
+    .collaboration-locked-notice,.active-collaborations { grid-column:1/-1; padding:20px; border:1px solid var(--line); border-radius:15px; background:var(--surface); }
+    .collaboration-locked-notice { display:grid; justify-items:center; gap:10px; padding:36px 20px; text-align:center; }
+    .collaboration-locked-notice strong { font-size:15px; }
+    .collaboration-locked-notice small,.active-collaborations p { color:var(--muted); font-size:11px; line-height:1.5; }
+    .active-collaborations h2 { margin:0; font-size:15px; }
+    .active-collaborations p { margin:5px 0 12px; }
+    .active-collaboration-list { display:flex; flex-wrap:wrap; gap:8px; }
+    .active-collaboration-list span { padding:7px 10px; border:1px solid #355442; border-radius:999px; background:#1d2e27; color:#b1f1d3; font-size:10px; }
+    .withdraw-button { grid-column:2; grid-row:1 / span 2; white-space:nowrap; }
+    .donation-summary { grid-template-columns:1fr auto auto; }
+    .donation-summary .withdraw-button { grid-column:3; grid-row:1; }
+    .sponsorship-options { min-width:0; margin:0 0 17px; padding:13px; border:1px solid var(--line); border-radius:12px; }
+    .sponsorship-options legend { padding:0 5px; color:var(--text); font-size:11px; font-weight:800; }
+    .sponsorship-options > p { margin:0 0 10px; color:var(--muted); font-size:10px; }
+    #sponsorship-list { display:grid; gap:8px; }
+    .sponsor-option { display:flex; align-items:center; gap:10px; padding:9px; border-radius:9px; background:#222526; cursor:pointer; }
+    .sponsor-option input { flex:none; accent-color:var(--mint); }
+    .sponsor-option span,.sponsor-option strong,.sponsor-option small { display:block; }
+    .sponsor-option strong { font-size:11px; }
+    .sponsor-option small { margin-top:3px; color:var(--muted); font-size:9px; line-height:1.4; }
+    .empty-collaborations { margin:0; color:var(--muted); font-size:10px; }
+    @media (max-width:620px) {
+      .profile-editor { padding:0 16px 19px; }
+      .profile-banner-preview { height:145px; margin:0 -16px; }
+      .profile-avatar-preview { width:76px; height:76px; margin-top:-38px; }
+      .collaboration-grid { grid-template-columns:1fr; }
+      .collaboration-balance { align-items:flex-start; flex-direction:column; }
+      .collaboration-balance button { width:100%; }
+    }

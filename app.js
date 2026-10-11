@@ -10,6 +10,43 @@
       const AD_FORMATS = ["preroll", "midroll", "display", "mixed"];
       const AD_FORMAT_FACTORS = { preroll: 1, midroll: 1.25, display: 0.65, mixed: 1.45 };
       const MAX_BYTES = 100 * 1024 * 1024;
+      const MAX_PROFILE_IMAGE_BYTES = 5 * 1024 * 1024;
+      const COLLABORATION_THRESHOLD = 10000n;
+      const COLLABORATION_CAMPAIGN_NAMES = [
+        "Auralis", "Bevel Labs", "Clover & Co", "Dayglow", "Evertrail", "Fable Foods", "Goodfolk", "Hush House", "Ivory Peak", "Juniper Works",
+        "Kindred Supply", "Luma Living", "Morrow Goods", "Nectar North", "Openfield", "Pine & Pixel", "Quiet Current", "Ramble Studio", "Solstice Social", "Trueform",
+        "Upwell", "Velvet Fern", "Wildwood Market", "Yonderly", "Zephyr & Stone", "Amberline", "Brightside Co", "Cloudberry", "Driftwell", "Elm Street Goods",
+        "Foxglove Foundry", "Golden Hour", "Harborlight", "Indigo Thread", "Jollygood", "Kite & Key", "Little Orbit", "Moonmilk", "Northstar Supply", "Olive Theory",
+        "Paper Tiger", "Quarry & Cove", "Redwood Ritual", "Sunday Standard", "Tandem Works", "Umbra Studio", "Vivid Vale", "Woven Wonder", "Yellow Finch", "Zenith Bloom",
+        "Arbor & Ash", "Bluebird Market", "Copperfield", "Dapple Goods", "Eastward Co", "Fieldnote", "Greenroom Labs", "Hearthside", "Ironwood Isle", "Joyful Matter",
+        "Koru Collective", "Lantern Lane", "Maple Motion", "Newday Nutrition", "Oat & Oak", "Pebble People", "Quicksilver Craft", "Riverstone", "Soft Focus", "Timber Theory",
+        "Uncommon Union", "Vera Vida", "Westward Works", "Wild Mint", "Young Mountain", "Alba Atelier", "Bramble & Birch", "Common Ground", "Dawn Patrol", "Ember & Echo",
+        "Faraway Found", "Goodweather", "Highline Home", "Isla Market", "Keen & Kind", "Larkspur Lane", "Mellow Fellow", "Nook & Nest", "Orchard Origin", "Poppyseed Studio",
+        "Rooftop Ritual", "Slow Sunday", "Thistle & Thread", "Understory", "Violet Hour", "Wilderwise", "Yarrow House", "Zest Theory", "Daymark Goods", "Evergreen Edit"
+      ];
+      const COLLABORATION_CATEGORIES = [
+        ["Technologia", "Pokaż widzom przydatne rozwiązanie dla twórców."],
+        ["Jedzenie i napoje", "Dodaj krótkie lokowanie produktu do swojego materiału."],
+        ["Moda i uroda", "Zaprezentuj produkt, który pasuje do Twojego stylu."],
+        ["Dom i styl życia", "Opowiedz o rzeczy, która ułatwia codzienność."],
+        ["Gaming", "Pokaż sprzęt lub dodatek podczas nagrania."],
+        ["Sport i outdoor", "Podziel się produktem, który wspiera aktywny tryb życia."],
+        ["Kultura i rozrywka", "Poleć społeczności ciekawą nowość."],
+        ["Edukacja", "Pokaż narzędzie, z którego korzystasz przy nauce i pracy."]
+      ];
+      const COLLABORATION_CAMPAIGNS = COLLABORATION_CAMPAIGN_NAMES.map((name, index) => {
+        const [category, description] = COLLABORATION_CATEGORIES[index % COLLABORATION_CATEGORIES.length];
+        return {
+          id: `brand-${index + 1}`,
+          name,
+          category,
+          description,
+          minSubs: COLLABORATION_THRESHOLD,
+          baseViews: 100000n + BigInt(index) * 25000n,
+          baseReward: 1000n + BigInt(index) * 75n,
+          rewardPerThousandSubs: 30n + BigInt(index % 12) * 5n
+        };
+      });
       const LIVE_CHAT_NAMES = [
         "Maja", "Kacper", "Ola", "Filip", "Zuzia", "Bartek", "Kuba", "Nina", "Mati", "Lena",
         "Adrian", "Wiki", "Oskar", "Iga", "Dawid", "Szymon", "Ania", "Tomek", "Pola", "Michał",
@@ -66,6 +103,7 @@
       let chatTimer = null;
       let lastAutosave = Date.now();
       const previewUrls = new Map();
+      const profileImageUrls = { avatar: { id: null, url: null }, banner: { id: null, url: null } };
       const $ = (id) => document.getElementById(id);
       const asCount = (value) => {
         try { return BigInt(value ?? 0); }
@@ -82,7 +120,25 @@
               views: asCount(saved.liveStats?.views).toString(),
               likes: asCount(saved.liveStats?.likes).toString(),
               subs: asCount(saved.liveStats?.subs).toString(),
-              donations: asCount(saved.liveStats?.donations).toString()
+              donations: asCount(saved.liveStats?.donations).toString(),
+              donationBalanceMicros: saved.liveStats?.donationBalanceMicros == null
+                ? (asCount(saved.liveStats?.donations) * 1000000n).toString()
+                : asCount(saved.liveStats.donationBalanceMicros).toString()
+            },
+            profile: {
+              name: typeof saved.profile?.name === "string" && saved.profile.name.trim() ? saved.profile.name.trim().slice(0, 40) : "Twórca",
+              bio: typeof saved.profile?.bio === "string" ? saved.profile.bio.slice(0, 280) : "",
+              avatarId: typeof saved.profile?.avatarId === "string" ? saved.profile.avatarId : null,
+              bannerId: typeof saved.profile?.bannerId === "string" ? saved.profile.bannerId : null
+            },
+            collaborations: {
+              balanceMicros: asCount(saved.collaborations?.balanceMicros).toString(),
+              activeIds: Array.isArray(saved.collaborations?.activeIds)
+                ? saved.collaborations.activeIds.filter((id) => COLLABORATION_CAMPAIGNS.some((campaign) => campaign.id === id))
+                : [],
+              offerIds: Array.isArray(saved.collaborations?.offerIds)
+                ? saved.collaborations.offerIds.filter((id) => COLLABORATION_CAMPAIGNS.some((campaign) => campaign.id === id))
+                : []
             },
             ads: {
               unlockedAt: Number(saved.ads?.unlockedAt) || null,
@@ -102,7 +158,9 @@
           console.error("Nie udało się odczytać danych YouVibe:", error);
           return {
             uploads: [],
-            liveStats: { views: "0", likes: "0", subs: "0", donations: "0" },
+            liveStats: { views: "0", likes: "0", subs: "0", donations: "0", donationBalanceMicros: "0" },
+            profile: { name: "Twórca", bio: "", avatarId: null, bannerId: null },
+            collaborations: { balanceMicros: "0", activeIds: [], offerIds: [] },
             ads: { unlockedAt: null, viewsAtUnlock: 0, enabled: true, format: "preroll", frequency: 2, rate: 8.5, monetizedViews: "0", balanceMicros: "0", lastProcessedViews: null }
           };
         }
@@ -141,6 +199,17 @@
           const request = db.transaction(DB_STORE, "readonly").objectStore(DB_STORE).get(id);
           request.onsuccess = () => resolve(request.result);
           request.onerror = () => reject(request.error || new Error("Nie udało się odczytać pliku."));
+        });
+      }
+      async function deleteFile(id) {
+        if (!id) return;
+        const db = await openDb();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(DB_STORE, "readwrite");
+          tx.objectStore(DB_STORE).delete(id);
+          tx.oncomplete = resolve;
+          tx.onerror = () => reject(tx.error || new Error("Nie udało się usunąć pliku profilu."));
+          tx.onabort = () => reject(tx.error || new Error("Usuwanie pliku profilu zostało przerwane."));
         });
       }
       async function clearMediaStore() {
@@ -263,7 +332,115 @@
         const cents = (asCount(value) + 5000n) / 10000n;
         const whole = cents / 100n;
         const fraction = (cents % 100n).toString().padStart(2, "0");
-        return `${shortNumber(whole)},${fraction} zł`;
+        return whole >= 1000n ? `${shortNumber(whole)} zł` : `${formatter.format(whole)},${fraction} zł`;
+      }
+      function collaborationOffer(campaign, subscribers) {
+        const currentSubscribers = asCount(subscribers);
+        const targetViews = campaign.baseViews > currentSubscribers * 10n ? campaign.baseViews : currentSubscribers * 10n;
+        const reward = campaign.baseReward + currentSubscribers / 1000n * campaign.rewardPerThousandSubs;
+        return { targetViews, rewardMicros: reward * 1000000n };
+      }
+      function activeCollaborations(subscribers = totals().subs) {
+        if (asCount(subscribers) < COLLABORATION_THRESHOLD) return [];
+        const activeIds = new Set(state.collaborations.activeIds);
+        return COLLABORATION_CAMPAIGNS.filter((campaign) => activeIds.has(campaign.id));
+      }
+      function ensureCollaborationOffers() {
+        if (totals().subs < COLLABORATION_THRESHOLD) return false;
+        const originalOffers = state.collaborations.offerIds.join(",");
+        const offers = new Set(state.collaborations.offerIds);
+        const active = new Set(state.collaborations.activeIds);
+        state.collaborations.offerIds = Array.from(offers).slice(0, 4);
+        while (state.collaborations.offerIds.length < 4) {
+          const available = COLLABORATION_CAMPAIGNS.filter((campaign) =>
+            !active.has(campaign.id) && !state.collaborations.offerIds.includes(campaign.id));
+          if (!available.length) break;
+          const next = available[Math.floor(Math.random() * available.length)];
+          state.collaborations.offerIds.push(next.id);
+        }
+        const changed = originalOffers !== state.collaborations.offerIds.join(",");
+        if (changed) saveState();
+        return changed;
+      }
+      function activateCollaboration(campaignId) {
+        const subscribers = totals().subs;
+        if (subscribers < COLLABORATION_THRESHOLD) {
+          showToast("Współprace odblokują się przy 10 000 subskrybentów.");
+          return;
+        }
+        if (!state.collaborations.offerIds.includes(campaignId)) return;
+        const campaign = COLLABORATION_CAMPAIGNS.find((item) => item.id === campaignId);
+        if (!campaign) return;
+        state.collaborations.activeIds.push(campaign.id);
+        state.collaborations.offerIds = state.collaborations.offerIds.filter((id) => id !== campaign.id);
+        ensureCollaborationOffers();
+        saveState();
+        render();
+        showToast(`Aktywowano współpracę z ${campaign.name}.`);
+      }
+      function renderCollaborationOptions() {
+        const container = $("sponsorship-list");
+        const active = activeCollaborations();
+        const checked = new Set(Array.from(container.querySelectorAll("input:checked"), (input) => input.value));
+        if (!active.length) {
+          container.innerHTML = '<p class="empty-collaborations">Wraz z rozwojem kanału pojawią się tu oferty.</p>';
+          return;
+        }
+        container.innerHTML = active.map((campaign) => {
+          const offer = collaborationOffer(campaign);
+          return `<label class="sponsor-option"><input type="checkbox" value="${campaign.id}"${checked.has(campaign.id) ? " checked" : ""}><span><strong>${escapeHTML(campaign.name)}</strong><small>Cel: ${shortNumber(offer.targetViews)} wyświetleń · wypłata ${formatBalance(offer.rewardMicros)}</small></span></label>`;
+        }).join("");
+      }
+      function renderCollaborationPage() {
+        const subscribers = totals().subs;
+        $("collaboration-balance").textContent = formatBalance(state.collaborations.balanceMicros);
+        const grid = $("collaboration-grid");
+        if (subscribers < COLLABORATION_THRESHOLD) {
+          grid.innerHTML = `<div class="collaboration-locked-notice"><span class="collaboration-brand-icon">✦</span><strong>Współprace odblokują się przy ${shortNumber(COLLABORATION_THRESHOLD)} subskrybentów</strong><small>Rozwijaj kanał, a potem wybierzesz spośród ofert 100 fikcyjnych firm.</small></div>`;
+          $("collaboration-offer-count").textContent = "ZABLOKOWANE";
+          $("active-collaboration-count").textContent = `${state.collaborations.activeIds.length} aktywnych`;
+          return;
+        }
+        ensureCollaborationOffers();
+        const offerCampaigns = state.collaborations.offerIds
+          .map((id) => COLLABORATION_CAMPAIGNS.find((campaign) => campaign.id === id))
+          .filter(Boolean);
+        $("collaboration-offer-count").textContent = `${offerCampaigns.length} OFERTY DO WYBORU`;
+        $("active-collaboration-count").textContent = `${state.collaborations.activeIds.length} aktywnych`;
+        grid.innerHTML = offerCampaigns.map((campaign) => {
+          const offer = collaborationOffer(campaign, subscribers);
+          return `<article class="collaboration-card available">
+            <div class="collaboration-card-top"><span class="collaboration-brand-icon">✦</span><span class="collaboration-status">OFERTA DLA CIEBIE</span></div>
+            <h2>${escapeHTML(campaign.name)}</h2><span class="collaboration-category">${escapeHTML(campaign.category)}</span>
+            <p>${escapeHTML(campaign.description)}</p>
+            <div class="collaboration-goal"><span>Cel lokowania</span><strong>${shortNumber(offer.targetViews)} wyświetleń</strong></div>
+            <div class="collaboration-goal"><span>Wypłata za film</span><strong>${formatBalance(offer.rewardMicros)}</strong></div>
+            <button class="primary activate-collaboration" type="button" data-campaign="${campaign.id}">Aktywuj współpracę</button>
+          </article>`;
+        }).join("");
+        const active = activeCollaborations(subscribers);
+        if (active.length) {
+          grid.insertAdjacentHTML("beforeend", `<div class="active-collaborations"><h2>Aktywne współprace</h2><p>Te firmy możesz zaznaczyć jako lokowanie przy dodawaniu filmu.</p><div class="active-collaboration-list">${active.map((campaign) => `<span>${escapeHTML(campaign.name)}</span>`).join("")}</div></div>`);
+        }
+      }
+      function accrueCollaborationEarnings() {
+        let earned = 0n;
+        let completedDeals = 0;
+        state.uploads.forEach((upload, index) => {
+          if (!Array.isArray(upload.sponsorships)) return;
+          const views = metrics(upload, index).views;
+          upload.sponsorships.forEach((deal) => {
+            if (deal.paid || views < asCount(deal.targetViews)) return;
+            deal.paid = true;
+            const payout = asCount(deal.rewardMicros);
+            state.collaborations.balanceMicros = (asCount(state.collaborations.balanceMicros) + payout).toString();
+            earned += payout;
+            completedDeals += 1;
+          });
+        });
+        if (!completedDeals) return;
+        saveState();
+        showToast(`Zaliczone lokowania: ${completedDeals}. Wypłata ${formatBalance(earned)} trafiła na saldo współprac.`);
       }
       function liveViewers() {
         if (!activeLive) return 0n;
@@ -475,6 +652,7 @@
         if (activeLive.elapsedSeconds % 10 === 0) {
           const amount = Math.floor(Math.random() * donationLimit()) + 1;
           state.liveStats.donations = (asCount(state.liveStats.donations) + BigInt(amount)).toString();
+          state.liveStats.donationBalanceMicros = (asCount(state.liveStats.donationBalanceMicros) + BigInt(amount) * 1000000n).toString();
           addDonationMessage(LIVE_CHAT_NAMES[Math.floor(Math.random() * LIVE_CHAT_NAMES.length)], amount);
         }
       }
@@ -562,8 +740,74 @@
           badge.textContent = upload.type.startsWith("video/") ? "FILM" : "ZDJĘCIE";
           target.append(badge);
       }
+      function setProfileImageElements(slot, url) {
+        const imageIds = slot === "avatar"
+          ? ["header-avatar-image", "channel-avatar-image", "profile-avatar-image"]
+          : ["channel-banner-image", "profile-banner-image"];
+        imageIds.forEach((id) => {
+          const image = $(id);
+          image.hidden = !url;
+          if (url) image.src = url;
+          else image.removeAttribute("src");
+        });
+        if (slot === "avatar") {
+          $("header-avatar-fallback").hidden = Boolean(url);
+          $("channel-avatar-fallback").hidden = Boolean(url);
+          $("profile-avatar-fallback").hidden = Boolean(url);
+        } else {
+          $("profile-banner-preview").classList.toggle("has-image", Boolean(url));
+        }
+      }
+      function renderProfileImage(slot) {
+        const field = slot === "avatar" ? "avatarId" : "bannerId";
+        const id = state.profile[field];
+        const cached = profileImageUrls[slot];
+        if (!id) {
+          if (cached.url) URL.revokeObjectURL(cached.url);
+          profileImageUrls[slot] = { id: null, url: null };
+          setProfileImageElements(slot, null);
+          return;
+        }
+        if (cached.id === id) {
+          if (cached.url) setProfileImageElements(slot, cached.url);
+          return;
+        }
+        if (cached.url) URL.revokeObjectURL(cached.url);
+        profileImageUrls[slot] = { id, url: null };
+        setProfileImageElements(slot, null);
+        getFile(id).then((record) => {
+          if (state.profile[field] !== id) return;
+          if (!record) {
+            showToast("Nie znaleziono zapisanego obrazu profilu.");
+            return;
+          }
+          const url = URL.createObjectURL(record.blob);
+          profileImageUrls[slot] = { id, url };
+          setProfileImageElements(slot, url);
+        }).catch((error) => {
+          console.error("Nie udało się wczytać obrazu profilu:", error);
+          showToast("Nie udało się wczytać obrazu profilu.");
+        });
+      }
+      function renderProfile() {
+        const name = state.profile.name || "Twórca";
+        const initial = Array.from(name)[0]?.toLocaleUpperCase("pl-PL") || "Y";
+        $("header-avatar-fallback").textContent = initial;
+        $("channel-avatar-fallback").textContent = initial;
+        $("profile-avatar-fallback").textContent = initial;
+        $("profile-button").setAttribute("aria-label", `Otwórz menu profilu: ${name}`);
+        $("home-greeting").textContent = `Hej, ${name}! 👋`;
+        $("channel-name").textContent = name;
+        $("channel-bio").textContent = state.profile.bio;
+        $("channel-bio").hidden = !state.profile.bio;
+        renderProfileImage("avatar");
+        renderProfileImage("banner");
+      }
       function render() {
         const total = totals();
+        accrueCollaborationEarnings();
+        renderProfile();
+        renderCollaborationPage();
         if (!state.ads.unlockedAt && total.subs >= BigInt(AD_THRESHOLD)) {
           state.ads.unlockedAt = Date.now();
           state.ads.viewsAtUnlock = total.views;
@@ -585,7 +829,7 @@
         $("live-total-views").textContent = shortNumber(state.liveStats.views);
         $("live-total-likes").textContent = shortNumber(state.liveStats.likes);
         $("live-total-subs").textContent = shortNumber(state.liveStats.subs);
-        $("live-donation-total").textContent = `${shortNumber(state.liveStats.donations)} zł`;
+        $("live-donation-total").textContent = formatBalance(state.liveStats.donationBalanceMicros);
         $("live-donation-limit").textContent = `Donate od 1 zł do ${formatter.format(donationLimit())} zł · nowy co 10 sekund`;
         $("live-status-value").textContent = activeLive ? "● Live" : "Offline";
         $("live-viewers").textContent = shortNumber(liveViewers());
@@ -669,6 +913,8 @@
         document.querySelectorAll(".card").forEach((card) => { card.hidden = !card.dataset.title.includes(query); });
       }
       function openModal() {
+        renderCollaborationOptions();
+        $("sponsorship-options").hidden = Boolean(selectedFile && !selectedFile.type.startsWith("video/"));
         $("modal").classList.add("open");
         $("title-input").focus();
       }
@@ -678,6 +924,36 @@
         $("profile-button").setAttribute("aria-expanded", String(!menu.hidden));
       });
       $("reset-button").addEventListener("click", resetEverything);
+      $("profile-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const name = $("profile-name").value.trim();
+        if (!name) {
+          showToast("Nick nie może być pusty.");
+          return;
+        }
+        state.profile.name = name.slice(0, 40);
+        state.profile.bio = $("profile-bio").value.trim().slice(0, 280);
+        saveState();
+        render();
+        showToast("Zapisano zmiany profilu.");
+      });
+      $("profile-avatar-file").addEventListener("change", (event) => {
+        saveProfileImage("avatar", event.target.files[0]);
+        event.target.value = "";
+      });
+      $("profile-banner-file").addEventListener("change", (event) => {
+        saveProfileImage("banner", event.target.files[0]);
+        event.target.value = "";
+      });
+      $("clear-avatar").addEventListener("click", () => clearProfileImage("avatar"));
+      $("clear-banner").addEventListener("click", () => clearProfileImage("banner"));
+      $("withdraw-ads").addEventListener("click", () => withdrawBalance(state.ads, "balanceMicros", "reklam"));
+      $("withdraw-donations").addEventListener("click", () => withdrawBalance(state.liveStats, "donationBalanceMicros", "donate"));
+      $("withdraw-collaborations").addEventListener("click", () => withdrawBalance(state.collaborations, "balanceMicros", "współprac"));
+      $("collaboration-grid").addEventListener("click", (event) => {
+        const button = event.target.closest(".activate-collaboration");
+        if (button) activateCollaboration(button.dataset.campaign);
+      });
       document.addEventListener("click", (event) => {
         if (!event.target.closest(".profile-menu-wrap")) {
           $("profile-menu").hidden = true;
@@ -688,8 +964,74 @@
         $("modal").classList.remove("open");
         $("upload-form").reset();
         selectedFile = null;
+        $("sponsorship-options").hidden = false;
         $("file-label").textContent = "Kliknij lub przeciągnij plik tutaj";
         $("publish-button").disabled = true;
+      }
+      function withdrawBalance(balanceOwner, balanceField, label) {
+        if (balanceOwner === state.ads) accrueAds(totals().views);
+        if (balanceOwner === state.collaborations) accrueCollaborationEarnings();
+        const balance = asCount(balanceOwner[balanceField]);
+        if (balance <= 0n) {
+          showToast("Brak środków do wypłaty.");
+          return;
+        }
+        balanceOwner[balanceField] = "0";
+        saveState();
+        render();
+        showToast(`Wypłacono ${formatBalance(balance)} z ${label}.`);
+      }
+      function profileImageId() {
+        return crypto.randomUUID ? `profile-${crypto.randomUUID()}` : `profile-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      }
+      async function saveProfileImage(slot, file) {
+        if (!file) return;
+        if (!file.type.startsWith("image/")) {
+          showToast("Wybierz plik obrazu.");
+          return;
+        }
+        if (file.size > MAX_PROFILE_IMAGE_BYTES) {
+          showToast("Obraz jest za duży. Maksymalny rozmiar to 5 MB.");
+          return;
+        }
+        const field = slot === "avatar" ? "avatarId" : "bannerId";
+        const previousId = state.profile[field];
+        const id = profileImageId();
+        try {
+          await storeFile({ id, blob: file });
+          state.profile[field] = id;
+          saveState();
+          render();
+        } catch (error) {
+          console.error("Nie udało się zapisać obrazu profilu:", error);
+          showToast(error.message || "Nie udało się zapisać obrazu profilu.");
+          return;
+        }
+        if (previousId && previousId !== id) {
+          try { await deleteFile(previousId); }
+          catch (error) {
+            console.error("Nie udało się usunąć poprzedniego obrazu profilu:", error);
+            showToast("Obraz profilu został zmieniony, ale nie udało się usunąć poprzedniego pliku.");
+            return;
+          }
+        }
+        showToast(slot === "avatar" ? "Zmieniono zdjęcie profilowe." : "Zmieniono baner kanału.");
+      }
+      async function clearProfileImage(slot) {
+        const field = slot === "avatar" ? "avatarId" : "bannerId";
+        const previousId = state.profile[field];
+        state.profile[field] = null;
+        saveState();
+        render();
+        if (previousId) {
+          try { await deleteFile(previousId); }
+          catch (error) {
+            console.error("Nie udało się usunąć obrazu profilu:", error);
+            showToast("Profil zaktualizowano, ale nie udało się usunąć starego pliku.");
+            return;
+          }
+        }
+        showToast(slot === "avatar" ? "Usunięto zdjęcie profilowe." : "Usunięto baner kanału.");
       }
       async function resetEverything() {
         if (!window.confirm("Czy na pewno chcesz zresetować wszystko? Zostaną usunięte filmy, zdjęcia, statystyki i ustawienia. Tej operacji nie można cofnąć.")) return;
@@ -714,9 +1056,15 @@
         stopCamera();
         previewUrls.forEach((url) => URL.revokeObjectURL(url));
         previewUrls.clear();
+        Object.keys(profileImageUrls).forEach((slot) => {
+          if (profileImageUrls[slot].url) URL.revokeObjectURL(profileImageUrls[slot].url);
+          profileImageUrls[slot] = { id: null, url: null };
+        });
         state = {
           uploads: [],
-          liveStats: { views: "0", likes: "0", subs: "0", donations: "0" },
+          liveStats: { views: "0", likes: "0", subs: "0", donations: "0", donationBalanceMicros: "0" },
+          profile: { name: "Twórca", bio: "", avatarId: null, bannerId: null },
+          collaborations: { balanceMicros: "0" },
           ads: {
             unlockedAt: null,
             viewsAtUnlock: 0,
@@ -734,6 +1082,8 @@
         $("ad-format").value = "preroll";
         $("ad-frequency").value = "2";
         $("ad-rate").value = "8.5";
+        $("profile-name").value = "Twórca";
+        $("profile-bio").value = "";
         closeModal();
         $("profile-menu").hidden = true;
         $("profile-button").setAttribute("aria-expanded", "false");
@@ -761,6 +1111,8 @@
         selectedFile = file;
         $("file-label").textContent = file.name;
         $("publish-button").disabled = false;
+        $("sponsorship-options").hidden = !file.type.startsWith("video/");
+        if (!$("sponsorship-options").hidden) renderCollaborationOptions();
         if (!$("title-input").value) $("title-input").value = file.name.replace(/\.[^.]+$/, "").slice(0, 90);
       }
 
@@ -838,7 +1190,21 @@
             id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
             title: $("title-input").value.trim() || selectedFile.name,
             type: selectedFile.type,
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            sponsorships: selectedFile.type.startsWith("video/")
+              ? Array.from($("sponsorship-list").querySelectorAll("input:checked"), (input) => {
+                const campaign = COLLABORATION_CAMPAIGNS.find((item) => item.id === input.value);
+                if (!campaign || totals().subs < campaign.minSubs) return null;
+                const offer = collaborationOffer(campaign, totals().subs);
+                return {
+                  campaignId: campaign.id,
+                  campaignName: campaign.name,
+                  targetViews: offer.targetViews.toString(),
+                  rewardMicros: offer.rewardMicros.toString(),
+                  paid: false
+                };
+              }).filter(Boolean)
+              : []
           };
           createReach(upload, totals().subs);
           await storeFile({ id: upload.id, blob: selectedFile });
@@ -863,6 +1229,8 @@
       $("ad-format").value = state.ads.format;
       $("ad-frequency").value = String(state.ads.frequency);
       $("ad-rate").value = String(state.ads.rate);
+      $("profile-name").value = state.profile.name;
+      $("profile-bio").value = state.profile.bio;
       render();
       window.addEventListener("pagehide", saveState);
       document.addEventListener("visibilitychange", () => {
