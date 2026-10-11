@@ -36,6 +36,7 @@
     .profile-menu { position:absolute; top:calc(100% + 13px); right:0; z-index:7; width:220px; padding:8px; border:1px solid #383c3e; border-radius:14px; background:#1b1e1f; box-shadow:0 16px 40px #0009; }
     .profile-menu[hidden] { display:none; }
     .profile-menu-heading { padding:9px 10px 11px; border-bottom:1px solid var(--line); color:var(--muted); font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+    .profile-version { padding:10px 10px 6px; color:#73e0b3; font-size:11px; font-weight:750; }
     .profile-reset { display:flex; align-items:center; gap:10px; width:100%; margin-top:5px; padding:10px; border:0; border-radius:9px; background:transparent; color:#ffadb8; text-align:left; font-size:12px; font-weight:750; cursor:pointer; }
     .profile-reset:hover { background:rgba(255,77,103,.12); }
     .profile-reset span { font-size:17px; }

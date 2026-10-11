@@ -235,7 +235,8 @@
         const views = age >= reach.decaySeconds * 7
           ? asCount(reach.maxViews)
           : asCount(reach.maxViews) * BigInt(Math.floor((1 - Math.exp(-age / reach.decaySeconds)) * 1e9)) / 1000000000n;
-        return { views, likes: views * 64n / 1000n, subs: views * 12n / 1000n };
+        const subs = views * 12n / 1000n + (upload.guaranteedInitialSubscriber ? 1n : 0n);
+        return { views, likes: views * 64n / 1000n, subs };
       }
       function createReach(upload, subscribers) {
         const roll = Math.random();
@@ -292,6 +293,14 @@
           changed = true;
         });
         if (changed) saveState();
+      }
+      function guaranteeFirstSubscriber() {
+        if (!state.uploads.length || totals().subs > 0n) return;
+        const firstUpload = state.uploads.reduce((first, upload) =>
+          !first || upload.createdAt < first.createdAt ? upload : first, null);
+        if (!firstUpload || firstUpload.guaranteedInitialSubscriber) return;
+        firstUpload.guaranteedInitialSubscriber = true;
+        saveState();
       }
       function totals() {
         const total = state.uploads.reduce((sum, upload, index) => {
@@ -1193,6 +1202,7 @@
             title: $("title-input").value.trim() || selectedFile.name,
             type: selectedFile.type,
             createdAt: Date.now(),
+            guaranteedInitialSubscriber: state.uploads.length === 0 && totals().subs === 0n,
             sponsorships: selectedFile.type.startsWith("video/")
               ? Array.from($("sponsorship-list").querySelectorAll("input:checked"), (input) => {
                 const campaign = COLLABORATION_CAMPAIGNS.find((item) => item.id === input.value);
@@ -1227,6 +1237,7 @@
         document.querySelectorAll(".page-view").forEach((page) => { page.hidden = page.id !== button.dataset.page; });
       }));
       migrateUploadReach();
+      guaranteeFirstSubscriber();
       $("ad-enabled").checked = state.ads.enabled;
       $("ad-format").value = state.ads.format;
       $("ad-frequency").value = String(state.ads.frequency);
